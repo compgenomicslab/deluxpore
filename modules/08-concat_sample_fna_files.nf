@@ -3,7 +3,7 @@ process concatenateSamples {
     
     tag { "${params.projectName}.rconcatenateSamples.${sampleName}" }
 
-    publishDir "${params.outDir}/07-final_demultiplex", mode: 'copy'
+    publishDir "${params.outDir}/08-final_demultiplex", mode: 'copy'
     
     input:
     tuple val(sampleName), path(sampleFiles)

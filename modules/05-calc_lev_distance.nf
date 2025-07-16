@@ -1,5 +1,4 @@
 process calcLevDistance {    
-    label 'not_so_fast'
 
     conda "${params.general_env}"
 
