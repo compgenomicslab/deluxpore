@@ -41,6 +41,8 @@ def check_arg(args=None):
 
 # Parse BLASTN output file, read trimmed reads and modify headers
 def parse_blast_output_write_fasta(blast_out, reads_dict, reads_out):
+    seen_entries = set()
+    duplicate_count = 0
     with open(blast_out, 'r') as blast_file, open(reads_out, 'w') as out_file:
         writer = FastaWriter(out_file, wrap=None)
         for line in blast_file:
@@ -51,14 +53,25 @@ def parse_blast_output_write_fasta(blast_out, reads_dict, reads_out):
             qend = int(parts[7])
 
             full_seq = reads_dict[read_id]
+            extracted_seq = full_seq.seq[qstart:qend]
+            output_id = f"{full_seq.id}.{index_id}.{qstart+1}.{qend}"
+            # Check if the entry has already been seen to avoid duplicates
+            entry_key = (output_id, extracted_seq)
+            if entry_key in seen_entries:
+                duplicate_count += 1
+                continue
+            else:
+                seen_entries.add(entry_key)
 
-            extracted_seq = SeqRecord(
-                seq=full_seq.seq[qstart:qend],
-                id=f"{full_seq.id}.{index_id}.{qstart+1}.{qend}",
+            final_seq = SeqRecord(
+                seq=extracted_seq,
+                id=output_id,
                 description=""
             )
 
-            writer.write_record(extracted_seq) #write record to output file
+            writer.write_record(final_seq) #write record to output file
+            
+    print(f"Processed BLAST output. Skipped {duplicate_count} entries with identical IDs and sequences.")
 
 if __name__ == '__main__':
     args = check_arg()
