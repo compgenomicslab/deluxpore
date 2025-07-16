@@ -5,10 +5,8 @@ nextflow.enable.dsl=2
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-params.general_env = "/home/acatalina/miniforge3/envs/metag_long"
+params.general_env = "/home/ktlina/miniforge3/envs/long_metag"
 params.bin = "scripts"
-
-
 
 
 log.info """\
@@ -34,6 +32,9 @@ log.info """\
 //Import required modules. Repeated modules will be loaded with corresponding aliases
 
 include { generateIndexFiles } from './modules/00-generate_index_files'
+
+include { removeNanoporeIndexes } from './modules/00-remove_nanopore_indexes'
+
 include { transFastqtoFasta } from './modules/01-transform_to_fasta'
 
 include { createDB } from './modules/02-reads2database'
@@ -45,9 +46,11 @@ include { extractUniqQueryIndex } from './modules/04-extract_uniq_query_index'
 
 include { calcLevDistance } from './modules/05-calc_lev_distance'
 
-include { parseBestDemulti } from './modules/06-parse_best_and_demultiplex'
+include { removeIlluminaIndexes } from './modules/06-remove_illumina_indexes'
 
-include { concatenateSamples } from './modules/07-concat_sample_fna_files'
+include { parseBestDemulti } from './modules/07-parse_best_and_demultiplex'
+
+include { concatenateSamples } from './modules/08-concat_sample_fna_files'
 
 
 
@@ -59,21 +62,21 @@ include { concatenateSamples } from './modules/07-concat_sample_fna_files'
 */
 workflow {
 
-
-    // 1) Generate index files one per demultiplexing experiment
-    runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
-    runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
-
-    // 2) Read input read files from directory 
     read_ch = Channel.fromPath("${params.readsDir}/${params.readsFileExtension}", type: 'file')
     read_ch = read_ch.map { file ->
-        def chunkID = file.name.replaceAll("\\.nano_trimmed\\.fastq\\.gz", "")
+        def chunkID = file.name.replaceAll("\\.fastq\\.gz", "")
         return [chunkID, file]
     }
 
+    // 0) Generate index files one per demultiplexing experiment
+    runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
+    runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
+
+    // 1) Remove Nanopore indexes from read files
+    removeNanoporeIndexesOutput = removeNanoporeIndexes(read_ch)
+
     // 3) Transform read files to fasta format
-    transFastqtoFastaOutput = transFastqtoFasta(read_ch)
-    // transFastqtoFastaOutput.view()
+    transFastqtoFastaOutput = transFastqtoFasta(removeNanoporeIndexesOutput)
 
     // 4) Map fastas to illumina index sequences
     createDBInput = runIndexFilesOutput.map { tuple ->
@@ -85,23 +88,37 @@ workflow {
     mapReads2DBOutput = mapReads2DB(mapReads2DBInput)
     // mapReads2DBOutput.view()
 
-    // 4) Parse BLAST output to extract unique query index sequences
+    // 5) Parse BLAST output to extract unique query index sequences
     parseBlastOutputInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
     parseBlastOutOutput = parseBlastOut(parseBlastOutputInput)
 
-    // 5) Extract unique query indexes from query complete fasta sequence files based on mapping to subject index sequences and their fixed position
+    // 6) Extract unique query indexes from query complete fasta sequence files based on mapping to subject index sequences and their fixed position
     extractUniqQueryIndexInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
     extractUniqQueryIndexOutput = extractUniqQueryIndex(extractUniqQueryIndexInput)
 
     // 6) Calculate Levenshtein distance between read unique index sequences (and RC) and illumina unique index sequences
     calcLevDistanceInput = extractUniqQueryIndexOutput.combine(runIndexFilesOutput.map { [it] })
-    // calcLevDistanceInput.view()
     calcLevDistanceOutput = calcLevDistance(calcLevDistanceInput)
 
+    // 6.1) Remove Illumina index sequences 
+    if (params.trimmIlluminaIndexes) {
+        // Remove Ilumina indcex from Nanopore clean fasta sequences
+        removeIlluminaIndexesInput = transFastqtoFastaOutput
+            .join(parseBlastOutOutput)
+        removeIlluminaIndexesOutput = removeIlluminaIndexes(removeIlluminaIndexesInput)
+
+        // Combine output to distance and index sequences
+        parseBestDemultiInput = removeIlluminaIndexesOutput
+            .join(calcLevDistanceOutput)
+            .combine(runIndexFilesInput)
+    } else {
+        // Instead use complete Nanopore fasta sequences
+        parseBestDemultiInput = transFastqtoFastaOutput
+            .join(calcLevDistanceOutput)
+            .combine(runIndexFilesInput)
+    }
+
     // 7) Parse distance matrix, extract best distance values per read and demultiplex
-    parseBestDemultiInput = transFastqtoFastaOutput
-        .join(calcLevDistanceOutput)
-        .combine(runIndexFilesInput)
     parseBestDemultiOutput = parseBestDemulti(parseBestDemultiInput)
 
     // 8) Join chunk files by sample name and concatenate into final sample files
@@ -121,6 +138,8 @@ workflow {
         .groupTuple()
 
     concatenatedSamples = concatenateSamples(allSampleFiles)
+    
+
 }
 
 workflow.onComplete {
