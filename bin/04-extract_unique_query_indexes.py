@@ -46,23 +46,23 @@ def check_arg(args=None):
 
 # Index position constants
 INDEX_POSITIONS = {
-    'i7': {'start': 24, 'end': 32},  # 8-base unique sequence at positions 24-32
-    'i5': {'start': 29, 'end': 37}   # 8-base unique sequence at positions 29-37
+    'i7': {'start': 24, 'end': 31},  # 8-base unique sequence at positions 24-32 - 0based (exclusive)
+    'i5': {'start': 29, 'end': 36}   # 8-base unique sequence at positions 29-37 - 0based
 }
 
 INDEX_LENGTH = 8
 
 
 def parse_blast_line(line):
-    """Parse BLAST output line and return relevant fields"""
+    """Parse BLAST output line and return relevant fields in 0-based indexing when appropriate"""
     fields = line.strip().split('\t')
     return {
         'qseqid': fields[0],    # Query sequence ID
         'sseqid': fields[1],    # Subject sequence ID  
-        'qstart': int(fields[6]), # Query alignment start
-        'qend': int(fields[7]),   # Query alignment end
-        'sstart': int(fields[8]), # Subject alignment start
-        'send': int(fields[9])    # Subject alignment end
+        'qstart': int(fields[6])-1, # Query alignment start
+        'qend': int(fields[7])-1,   # Query alignment end
+        'sstart': int(fields[8])-1, # Subject alignment start
+        'send': int(fields[9])-1    # Subject alignment end
     }
 
 def get_index_type(subject_id):
@@ -74,7 +74,7 @@ def get_index_type(subject_id):
     return None
 
 
-def calculate_unique_positions_subject(index_type):
+def retrieve_unique_positions_subject(index_type):
     """Calculate the positions of unique sequence in subject coordinates"""
     if index_type not in INDEX_POSITIONS:
         return None, None
@@ -106,14 +106,14 @@ def extract_unique_sequence(query_seq, blast_data, index_type):
         Extracted unique sequence or None if extraction fails
     """
 
-    # Get alignment coordinates
+    # Get alignment coordinates already in 0-based indexing
     qstart = blast_data['qstart']
     qend = blast_data['qend']
     sstart = blast_data['sstart']
     send = blast_data['send']
 
     # Determine unique sequence positions in subject
-    unique_start_subj, unique_end_subj = calculate_unique_positions_subject(index_type)
+    unique_start_subj, unique_end_subj = retrieve_unique_positions_subject(index_type)
     if unique_start_subj is None:
         return None
 
@@ -126,12 +126,12 @@ def extract_unique_sequence(query_seq, blast_data, index_type):
         offset_from_align_end = sstart - unique_end_subj
         unique_start_query = qstart + offset_from_align_end
         unique_end_query = unique_start_query + INDEX_LENGTH 
-        extracted_seq = query_seq[unique_start_query-1:unique_end_query-1] # Convert to 0-based
+        extracted_seq = query_seq[unique_start_query:unique_end_query]
     else:
         offset_from_align_start = unique_start_subj - sstart
         unique_start_query = qstart + offset_from_align_start
         unique_end_query = unique_start_query + INDEX_LENGTH 
-        extracted_seq = query_seq[unique_start_query-1:unique_end_query-1] # Convert to 0-based
+        extracted_seq = query_seq[unique_start_query:unique_end_query]
 
     # Validate extracted sequence length
     if len(extracted_seq) != INDEX_LENGTH:
@@ -161,7 +161,7 @@ def process_blast_output(blast_file, fasta_file, output_file):
         for line in f:
             if line.strip():
                 try:
-                    blast_data = parse_blast_line(line) #returns a dictionary with parsed fields per line
+                    blast_data = parse_blast_line(line) #returns a dictionary with parsed fields per line in 0-based indexing when appropriate
                     index_type = get_index_type(blast_data['sseqid'])
                     
                     if index_type and blast_data['qseqid'] in query_sequences:
