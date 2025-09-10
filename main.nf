@@ -5,7 +5,7 @@ nextflow.enable.dsl=2
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-params.general_env = "/home/ktlina/miniforge3/envs/long_metag"
+params.general_env = "/home/acatalina/miniforge3/envs/metag_long"
 params.bin = "scripts"
 
 
@@ -72,11 +72,15 @@ workflow {
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
     runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
 
-    // 1) Remove Nanopore indexes from read files
-    removeNanoporeIndexesOutput = removeNanoporeIndexes(read_ch)
+    if (params.trimNanoporeIndexes){
+        // 1) Remove Nanopore indexes from read files
+        removeNanoporeIndexesOutput = removeNanoporeIndexes(read_ch)
 
-    // 3) Transform read files to fasta format
-    transFastqtoFastaOutput = transFastqtoFasta(removeNanoporeIndexesOutput)
+        // 3) Transform read files to fasta format
+        transFastqtoFastaOutput = transFastqtoFasta(removeNanoporeIndexesOutput)
+    } else {
+        transFastqtoFastaOutput = transFastqtoFasta(read_ch)
+    }
 
     // 4) Map fastas to illumina index sequences
     createDBInput = runIndexFilesOutput.map { tuple ->
