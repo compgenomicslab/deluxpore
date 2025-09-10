@@ -81,6 +81,7 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
     GroupData = namedtuple('GroupData', ['i5', 'i5_dist', 'i7', 'i7_dist'])
     grouped_data = {}
     for key, (min_value, index_name) in best_dict.items():
+        print(key)
         read_name, _ = key.split('.')  # split key name into read name and the potential best index it was mapped to
 
         if read_name not in grouped_data:  # check if the read was already checked
@@ -135,9 +136,11 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
                 # Handle tie case - check if this combination is valid
                 current_combo = [current.i5, current.i7] if current.i5 and current.i7 else None
                 new_combo = [current.i5, index_name] if current.i5 else None
+                print(current_combo, new_combo)
                 # Prefer valid combinations over invalid ones
                 current_is_valid = validate_index_pairs(exp_des_dict, current_combo)
                 new_is_valid = validate_index_pairs(exp_des_dict, new_combo)
+                print(current_is_valid, new_is_valid)
                 if new_is_valid and not current_is_valid:
                     should_update = True
                     print(f"update, new combination '{new_combo}' is valid and current '{current_combo}' is not")
@@ -211,7 +214,6 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                 for sample_name, sample_indexes in exp_des_dict.items():
                     if sample_indexes == index_pair:
                         assigned_sample = sample_name
-                    break
                 
             #Case 2: only i5 present
             elif i5 != "" and i7 == "":
@@ -236,6 +238,7 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                     description=""
                 )
                 SeqIO.write(new_seq, per_sample_chunk_output_file[assigned_sample], 'fasta')
+                print(f"'{read}' was sucessfully demultiplexed")
                 
     finally:
         for file_handle in per_sample_chunk_output_file.values():
