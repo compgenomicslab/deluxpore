@@ -52,38 +52,45 @@ def parse_complete_index_read_seqs(comp_index_reads):
 def trim_illumina_indexes_short(parsed_comp_index_reads, reads_dict, chunkID, output_path):
     trimmed_reads = {}
     for read_id in parsed_comp_index_reads.keys():
-        if read_id in reads_dict:
-            seq_to_trim = reads_dict[read_id].seq
 
-            index_seqs_per_read = parsed_comp_index_reads[read_id]
+        if read_id not in reads_dict:
+                continue  # skip reads not found in reads_dict
             
-            # Collect trim positions
-            start_trim_positions = []
-            end_trim_positions = []
+        seq_to_trim = reads_dict[read_id].seq
 
-            for positions, seq in index_seqs_per_read.items():
-                start, end = map(int, positions.split('.'))
+        index_seqs_per_read = parsed_comp_index_reads[read_id]
+            
+        # Collect trim positions
+        start_trim_positions = []
+        end_trim_positions = []
 
-                if start < 73 and end <= 73:
-                    # Trimming at the start
-                    start_trim_positions.append(end)
-                elif start >= len(seq_to_trim) - 73 and end <= len(seq_to_trim):
-                    # Trimming at the end
-                    end_trim_positions.append(start)
+        for positions, seq in index_seqs_per_read.items():
+            start, end = map(int, positions.split('.'))
 
-                # If in the middle, ignore
+            if start < 73 and end <= 73:
+                # Trimming at the start
+                start_trim_positions.append(end)
+            elif start >= len(seq_to_trim) - 73 and end <= len(seq_to_trim):
+                # Trimming at the end
+                end_trim_positions.append(start)
 
+            # If in the middle, ignore
+
+        trimmed_seq = seq_to_trim
+
+        # Trim at the end first if needed
+        if end_trim_positions:
+            trim_end_pos = min(end_trim_positions)
+            trimmed_seq = trimmed_seq[:trim_end_pos]
+
+        # Then trim at the start
+        if start_trim_positions:
+            trim_start_pos = max(start_trim_positions)
+            trimmed_seq = trimmed_seq[trim_start_pos:]
+
+        # Safety check for empty sequences
+        if trimmed_seq is None or len(trimmed_seq) == 0:
             trimmed_seq = seq_to_trim
-
-            # Trim at the end first if needed
-            if end_trim_positions:
-                trim_end_pos = min(end_trim_positions)
-                trimmed_seq = trimmed_seq[:trim_end_pos]
-
-            # Then trim at the start
-            if start_trim_positions:
-                trim_start_pos = max(start_trim_positions)
-                trimmed_seq = trimmed_seq[trim_start_pos:]
 
         trimmed_reads[read_id] = trimmed_seq
     
