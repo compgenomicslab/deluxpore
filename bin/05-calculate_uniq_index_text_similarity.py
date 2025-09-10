@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from Bio import SeqIO
+from Levenshtein import distance
 
 
 def check_arg(args=None):
@@ -40,41 +41,41 @@ def check_arg(args=None):
 ### FUNCTIONS ###
 #################
 
-def iterative_levenshtein(s, t):
-    """ 
-        iterative_levenshtein(s, t) -> ldist
-        ldist is the Levenshtein distance between the strings 
-        s and t.
-        For all i and j, dist[i,j] will contain the Levenshtein 
-        distance between the first i characters of s and the 
-        first j characters of t
-    """
+# def iterative_levenshtein(s, t):
+#     """ 
+#         iterative_levenshtein(s, t) -> ldist
+#         ldist is the Levenshtein distance between the strings 
+#         s and t.
+#         For all i and j, dist[i,j] will contain the Levenshtein 
+#         distance between the first i characters of s and the 
+#         first j characters of t
+#     """
 
-    rows = len(s)+1
-    cols = len(t)+1
-    dist = [[0 for x in range(cols)] for x in range(rows)]
+#     rows = len(s)+1
+#     cols = len(t)+1
+#     dist = [[0 for x in range(cols)] for x in range(rows)]
 
-    # source prefixes can be transformed into empty strings 
-    # by deletions:
-    for i in range(1, rows):
-        dist[i][0] = i
+#     # source prefixes can be transformed into empty strings 
+#     # by deletions:
+#     for i in range(1, rows):
+#         dist[i][0] = i
 
-    # target prefixes can be created from an empty source string
-    # by inserting the characters
-    for i in range(1, cols):
-        dist[0][i] = i
+#     # target prefixes can be created from an empty source string
+#     # by inserting the characters
+#     for i in range(1, cols):
+#         dist[0][i] = i
 
-    for col in range(1, cols):
-        for row in range(1, rows):
-            if s[row-1] == t[col-1]:
-                cost = 0
-            else:
-                cost = 1
-            dist[row][col] = min(dist[row-1][col] + 1,      # deletion
-                                 dist[row][col-1] + 1,      # insertion
-                                 dist[row-1][col-1] + cost) # substitution
+#     for col in range(1, cols):
+#         for row in range(1, rows):
+#             if s[row-1] == t[col-1]:
+#                 cost = 0
+#             else:
+#                 cost = 1
+#             dist[row][col] = min(dist[row-1][col] + 1,      # deletion
+#                                  dist[row][col-1] + 1,      # insertion
+#                                  dist[row-1][col-1] + cost) # substitution
 
-    return dist[row][col]
+#     return dist[row][col]
 
 # Function to parse a FASTA file and return a dictionary mapping headers to sequences
 def parse_fasta(fasta_file):
@@ -92,8 +93,8 @@ def index_distances(record, uniq_index, uniq_index_rc, index_order):
     distances[read_name] = {}
 
     for index in index_order:
-        dist = iterative_levenshtein(read_seq, uniq_index[index])  # Distance to forward index
-        dist_rc = iterative_levenshtein(read_seq, uniq_index_rc[index])  # Distance to reverse complement index
+        dist = distance(read_seq, uniq_index[index])  # Distance to forward index
+        dist_rc = distance(read_seq, uniq_index_rc[index])  # Distance to reverse complement index
         distances[read_name][index] = min(dist, dist_rc)  # Store the minimum of the two distances
 
     # Print the distances for the given read_name, tab-separated
