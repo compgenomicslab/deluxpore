@@ -22,7 +22,6 @@ process createDB {
     script:
     """
     mkdir -p "${params.projectName}_db"
-    
     makeblastdb -in "${indexFile}" -dbtype nucl -out "db"
     mv db* "${params.projectName}_db/"
     """
