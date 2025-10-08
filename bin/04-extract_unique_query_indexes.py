@@ -35,6 +35,9 @@ def check_arg(args=None):
     parser.add_argument('--reads', '-r', required=True,
                         help='Path to complete query sequences in FASTA format')
 
+    parser.add_argument('--index_kit', '-ik', required=True,
+                        help='Path to complete query sequences in FASTA format')
+
     parser.add_argument('--output', '-o', required=True,
                         help='Output fasta file name to write exact unique index sequence from complete query index sequences')
 
@@ -46,11 +49,11 @@ def check_arg(args=None):
 
 # Index position constants
 INDEX_POSITIONS = {
-    'i7': {'start': 24, 'end': 31},  # 8-base unique sequence at positions 24-32 - 0based (exclusive)
-    'i5': {'start': 29, 'end': 36}   # 8-base unique sequence at positions 29-37 - 0based
+    'i7': {'start': 24, 'end': 32},  # 8-base unique sequence at positions 24-32 - 0based (exclusive)
+    'i5': {'start': 29, 'end': 37}   # 8-base unique sequence at positions 29-37 - 0based (exclusive)
 }
+print(INDEX_POSITIONS)
 
-INDEX_LENGTH = 8
 
 
 def parse_blast_line(line):
@@ -120,9 +123,14 @@ def extract_unique_sequence(query_seq, blast_data, index_type):
     # Check if unique region is covered by alignment
     if not is_unique_region_covered(sstart, send, unique_start_subj, unique_end_subj):
         return None
+    
+    # Check minimum subject alignment length 
+    if abs(send - sstart) < 20:
+        return None
 
     subject_reverse = sstart > send
     if subject_reverse:
+        print("offset_from_align_end = sstart - unique_end_subj")
         offset_from_align_end = sstart - unique_end_subj
         unique_start_query = qstart + offset_from_align_end
         unique_end_query = unique_start_query + INDEX_LENGTH 
@@ -135,7 +143,7 @@ def extract_unique_sequence(query_seq, blast_data, index_type):
 
     # Validate extracted sequence length
     if len(extracted_seq) != INDEX_LENGTH:
-        return None
+        return None 
 
     return extracted_seq
 
@@ -187,7 +195,7 @@ def process_blast_output(blast_file, fasta_file, output_file):
         for result in results:
             final_seq = SeqRecord(
                 seq=result["unique_sequence"],
-                id=f"{result['query_id']}.{result['subject_id']}",
+                id=f"{result['query_id']}.{result['subject_id']}.{result['alignment_info']}",
                 description=""
             )
 
@@ -198,6 +206,12 @@ def process_blast_output(blast_file, fasta_file, output_file):
 
 if __name__ == "__main__":
     args = check_arg()
+
+    # Set index length based on index kit
+    if args.index_kit == "NEXTERA":
+        INDEX_LENGTH = 10
+    elif args.index_kit == "NEBNext":
+        INDEX_LENGTH = 8
 
     results = process_blast_output(args.input, args.reads, args.output)
     print(f"Processed {len(results)} successful extractions", file=sys.stderr)

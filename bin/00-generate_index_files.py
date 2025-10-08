@@ -23,6 +23,9 @@ def check_arg(args=None):
     
     parser.add_argument('--input', '-i', required=True,
                         help='Path to experimental design file in tsv format')
+
+    parser.add_argument('--indexKit', '-ik', required=True,
+                        help='index sequences kit name used in library construction')
     
     parser.add_argument('--output', '-o', required=True,
                         help='Output directory to write the results')
@@ -35,9 +38,9 @@ def check_arg(args=None):
 
 element = namedtuple('seq_id', ['i5', 'i7'])
 
-def read_index_seqs_into_dict():
-    with open("/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/assets/ILLUMINA.complete_indexes.fna", "r") as complete_indexes:
-        with open("/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/assets/ILLUMINA.unique_indexes.fna", "r") as unique_indexes:
+def read_index_seqs_into_dict(indexkit):
+    with open(f"/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/assets/{indexkit}.complete_indexes.fna", "r") as complete_indexes:
+        with open(f"/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/assets/{indexkit}.unique_indexes.fna", "r") as unique_indexes:
             complete_dict = SeqIO.to_dict(SeqIO.parse(complete_indexes, "fasta"))
             unique_dict = SeqIO.to_dict(SeqIO.parse(unique_indexes, "fasta"))
 
@@ -50,7 +53,7 @@ def read_experimental_design(input_file):
         lines = file.readlines()
 
         for line in lines:
-            info = line.strip().split("\t")
+            info = line.strip().split(" ")
             sample = info[0]
             i5 = str(info[1])
             i7 = str(info[2])
@@ -101,7 +104,7 @@ if __name__ == '__main__':
     args = check_arg()
 
     #Parse index seq files and store info into ditionary
-    complete_dict, unique_dict = read_index_seqs_into_dict()
+    complete_dict, unique_dict = read_index_seqs_into_dict(args.indexKit)
 
     my_seq_indexes = read_experimental_design(args.input)
     # print(my_seq_indexes)
