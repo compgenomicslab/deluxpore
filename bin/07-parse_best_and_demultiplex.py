@@ -46,7 +46,7 @@ def parse_exp_design(file_path):
     exp_des_dict = {}
     with open(file_path, 'r') as file:
         for line in file:
-            info = line.strip().split('\t')
+            info = line.strip().split(' ')
             i5 = info[1]
             i7 = info[2]
             exp_des_dict[info[0]] = [i5, i7]
@@ -82,7 +82,7 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
     grouped_data = {}
     for key, (min_value, index_name) in best_dict.items():
         print(key)
-        read_name, _ = key.split('.')  # split key name into read name and the potential best index it was mapped to
+        read_name, _, align_info = key.split('.')  # split key name into read name and the potential best index it was mapped to
 
         if read_name not in grouped_data:  # check if the read was already checked
             # initialize read if not seen before
