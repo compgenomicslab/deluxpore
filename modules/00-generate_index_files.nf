@@ -8,7 +8,7 @@ process generateIndexFiles {
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false'
 
     when:
-    !file("${params.outDir}/00-indexes").exists()
+    !file("${params.outDir}/indexes").exists()
 
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
     maxRetries 2
@@ -17,13 +17,15 @@ process generateIndexFiles {
     file (experimentalDesignInput)
 
     output:
-    path ("00-indexes/*")
+    path ("indexes/*")
 
     script:
     """
-    mkdir -p "00-indexes"
+
+    mkdir -p "indexes"
     00-generate_index_files.py \
     -i ${experimentalDesignInput} \
-    -o "00-indexes"
+    -ik ${params.libraryIndexSeqs} \
+    -o "indexes"
     """
 }
