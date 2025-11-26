@@ -5,7 +5,7 @@
 **deluxpore** is a bioinformatic pipeline designed to demultiplex [Oxford Nanopore](https://nanoporetech.com/) reads that have previously been multiplexed using [Illumina Dual-Index](https://www.illumina.com/techniques/sequencing/ngs-library-prep/multiplexing/unique-dual-indexes.html) identifiers. 
 
 
-### Table of contents
+## Table of contents
 
 * [Requirements](#requirements)
 * [Installation](#installation)
