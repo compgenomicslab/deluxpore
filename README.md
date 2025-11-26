@@ -42,7 +42,7 @@ The conda environment is built on the first run and cached for future use.
 **Option 2: Pre-build the environment (faster)**
 ```bash
 # Create environment once
-mamba env create -f /envs/deluxpore.yml -n deluxpore
+mamba env create -f https://raw.githubusercontent.com/ktlina/deluxpore/main/envs/deluxpore.yml -n deluxpore
 
 # Run with pre-built environment
 nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/deluxpore -params-file params.json
