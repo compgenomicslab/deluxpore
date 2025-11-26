@@ -78,22 +78,21 @@ nextflow run -latest ktlina/deluxpore/main.nf --help
 =========================================
 
 Usage:
-  nextflow run ktlina/deluxpore -profile local,conda -params-file params.yml
+  nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
 
 Required parameters:
   --projectName          Name for your project
   --readsDir             Path to directory containing Nanopore reads
+  --readsFileExtension   File extension pattern (e.g., *.fastq.gz)
   --experimentalDesign   Path to sample-to-index mapping file (TSV)
   --outDir               Output directory
-  --readsFileExtension   Custom file extension pattern [default: null]
-  --libraryIndexSeqs     Illumina index sequence set name [default: null]
+  --libraryIndexSeqs     Illumina index kit used for multiplexing
+                         Accepted values: NEBNext, NEXTERA
 
-Nanopore filtering:
+Optional parameters:
   --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
   --nanoQscore             Minimum quality score [default: 20]
   --nanoLength             Minimum read length [default: 100]
-
-Illumina trimming:
   --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
 
 Resource limits:
@@ -105,9 +104,9 @@ Other:
   --help                 Show this help message
 
 Examples:
-  # Basic local run
-  nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
+  # Using NEBNext indexes
+  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nebnext -params-file params.json
 
-  # With pre-built conda environment
-  nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/env -params-file params.json
+  # Using Nextera indexes
+  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
 ```
