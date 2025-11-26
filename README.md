@@ -28,7 +28,25 @@ This pipeline was built using [Nextflow](https://www.nextflow.io/). The whole wo
 - Install [Nextflow version >=23.04.0](https://www.nextflow.io/docs/latest/getstarted.html#installation)
 - Install [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/getting-started.html)
 
+No further installation is required — Nextflow downloads the pipeline automatically on first run.
+
 The complete workflow can be run on a personal computer, as [Oxford Nanopore](https://nanoporetech.com/) reads are tipically reported as **fastq.gz chunk files**. This combined with the smart [Nextflow wildcard](https://www.nextflow.io/docs/latest/working-with-files.html) path matcher, allows for easy paralellization. The pipelie can also be run on HPC clusters: [Nextflow](https://www.nextflow.io/) offers multiple [executor](https://www.nextflow.io/docs/latest/executor.html) options; however, this pipeline is only prepared for local and [Slurm](https://slurm.schedmd.com/documentation.html) profiles. 
+
+**Option 1: Let Nextflow handle the environment (simplest)**
+```bash
+nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
+```
+
+The conda environment is built on the first run and cached for future use.
+
+**Option 2: Pre-build the environment (faster)**
+```bash
+# Create environment once
+mamba env create -f /envs/deluxpore.yml -n deluxpore
+
+# Run with pre-built environment
+nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/deluxpore -params-file params.json
+```
 
 <a name="quick-usage"></a>
 ## Quick usage
@@ -42,11 +60,5 @@ Simple steps to run deluxpore:
      ```
   2. Create `params_file.my_experiment.json`
 
-Running deluxpore in **local profile**:
-```bash
-# Run BAT on each input genome, saving all results to the same folder
-CAT bins -b ${genome_name}.fna -d ${path_to_CAT_database} -t ${path_to_CAT_tax_folder} -o BAT_results/${genome_name}
 
-# Optional: to check what taxa were assigned, you can add names to them
-CAT add_names -i BAT_results/${genome_name}.bin2classification.txt -o BAT_results/${genome_name}.name.txt -t ${path_to_CAT_tax_folder}
 ```
