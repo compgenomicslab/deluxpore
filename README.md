@@ -32,11 +32,21 @@ The complete workflow can be run on a personal computer, as [Oxford Nanopore](ht
 
 <a name="quick-usage"></a>
 ## Quick usage
+Simple steps to run deluxpore:
+  1. Create `experimental_design.csv` file, where first row is the final desired sample ID, second row is the i5 Illumina index, and third row is the i7 Illumina index:
+     
+     ```csv
+     sample1,i501,i701
+     sample2,i501,i702
+     sample3,i501,i703
+     ```
+  2. Create `params_file.my_experiment.json`
 
+Running deluxpore in **local profile**:
+```bash
+# Run BAT on each input genome, saving all results to the same folder
+CAT bins -b ${genome_name}.fna -d ${path_to_CAT_database} -t ${path_to_CAT_tax_folder} -o BAT_results/${genome_name}
 
-
-
-
-
-## Installation and dependencies
-
+# Optional: to check what taxa were assigned, you can add names to them
+CAT add_names -i BAT_results/${genome_name}.bin2classification.txt -o BAT_results/${genome_name}.name.txt -t ${path_to_CAT_tax_folder}
+```
