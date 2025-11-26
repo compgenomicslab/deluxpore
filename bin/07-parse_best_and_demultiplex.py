@@ -55,7 +55,6 @@ def parse_exp_design(file_path):
 def validate_index_pairs(exp_des_dict, index_pair):
     return index_pair in exp_des_dict.values()
 
-
 def create_best_distance_dict(distance_file):
     best = defaultdict(list)
     with open(distance_file, 'r') as tsv:
@@ -72,7 +71,7 @@ def create_best_distance_dict(distance_file):
                 min_value = distances[min_value_index]
 
                 best_match = header_list[min_value_index + 1]
-                if min_value <= 2:
+                if min_value <= 3:
                     best[query_id] = [min_value, best_match]
         return best
 
