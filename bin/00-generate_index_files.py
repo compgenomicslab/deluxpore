@@ -47,8 +47,9 @@ def read_index_seqs_into_dict(indexkit):
     return complete_dict, unique_dict
 
 def read_experimental_design(input_file):
-    seq_indexes = {}
-    
+    # seq_indexes = {}
+    i5_indexes = set()
+    i7_indexes = set()
     with open(input_file, "r") as file:
         lines = file.readlines()
 
@@ -58,9 +59,11 @@ def read_experimental_design(input_file):
             i5 = str(info[1])
             i7 = str(info[2])
 
-            seq_indexes[sample] = element(i5=i5, i7=i7)
+            i5_indexes.add(i5)
+            i7_indexes.add(i7)
+            # seq_indexes[sample] = element(i5=i5, i7=i7)
 
-    return seq_indexes
+    return i5_indexes, i7_indexes
 
 def create_file_handlers(output):
     # Create file handlers using context manager
@@ -72,33 +75,51 @@ def create_file_handlers(output):
     return files
 
 
-def write_index_files(seq_indexes, complete_dict, unique_dict, output_dir):
+def write_index_files(i5_indexes, i7_indexes, complete_dict, unique_dict, output_dir):
 
     file_handlers = create_file_handlers(output_dir)
 
-    for seq in seq_indexes:
-        print(seq)
-        i5 = seq_indexes[seq].i5
-        i7 = seq_indexes[seq].i7
-
+    for i5 in i5_indexes:
         i5_seq_complete = SeqRecord(complete_dict[i5].seq, id=complete_dict[i5].id, description="")
-        i7_seq_complete = SeqRecord(complete_dict[i7].seq, id=complete_dict[i7].id, description="")
-
         i5_seq_unique = SeqRecord(unique_dict[i5].seq, id=unique_dict[i5].id, description="")
-        i7_seq_unique = SeqRecord(unique_dict[i7].seq, id=unique_dict[i7].id, description="")
-
         i5_seq_unique_rc = SeqRecord((unique_dict[i5].seq).reverse_complement(), id=unique_dict[i5].id, description="")
-        i7_seq_unique_rc = SeqRecord((unique_dict[i7].seq).reverse_complement(), id=unique_dict[i7].id, description="")
-
 
         SeqIO.write(i5_seq_complete, file_handlers["complete"], 'fasta')
-        SeqIO.write(i7_seq_complete, file_handlers["complete"], 'fasta')
-
         SeqIO.write(i5_seq_unique, file_handlers["unique"], 'fasta')
-        SeqIO.write(i7_seq_unique, file_handlers["unique"], 'fasta')
-
         SeqIO.write(i5_seq_unique_rc, file_handlers["rc"], 'fasta')
+    
+    for i7 in i7_indexes:
+        i7_seq_complete = SeqRecord(complete_dict[i7].seq, id=complete_dict[i7].id, description="")
+        i7_seq_unique = SeqRecord(unique_dict[i7].seq, id=unique_dict[i7].id, description="")
+        i7_seq_unique_rc = SeqRecord((unique_dict[i7].seq).reverse_complement(), id=unique_dict[i7].id, description="")
+
+        SeqIO.write(i7_seq_complete, file_handlers["complete"], 'fasta')
+        SeqIO.write(i7_seq_unique, file_handlers["unique"], 'fasta')
         SeqIO.write(i7_seq_unique_rc, file_handlers["rc"], 'fasta')
+    
+    # for seq in seq_indexes:
+    #     print(seq)
+    #     i5 = seq_indexes[seq].i5
+    #     i7 = seq_indexes[seq].i7
+
+    #     i5_seq_complete = SeqRecord(complete_dict[i5].seq, id=complete_dict[i5].id, description="")
+    #     i7_seq_complete = SeqRecord(complete_dict[i7].seq, id=complete_dict[i7].id, description="")
+
+    #     i5_seq_unique = SeqRecord(unique_dict[i5].seq, id=unique_dict[i5].id, description="")
+    #     i7_seq_unique = SeqRecord(unique_dict[i7].seq, id=unique_dict[i7].id, description="")
+
+    #     i5_seq_unique_rc = SeqRecord((unique_dict[i5].seq).reverse_complement(), id=unique_dict[i5].id, description="")
+    #     i7_seq_unique_rc = SeqRecord((unique_dict[i7].seq).reverse_complement(), id=unique_dict[i7].id, description="")
+
+
+    #     SeqIO.write(i5_seq_complete, file_handlers["complete"], 'fasta')
+    #     SeqIO.write(i7_seq_complete, file_handlers["complete"], 'fasta')
+
+    #     SeqIO.write(i5_seq_unique, file_handlers["unique"], 'fasta')
+    #     SeqIO.write(i7_seq_unique, file_handlers["unique"], 'fasta')
+
+    #     SeqIO.write(i5_seq_unique_rc, file_handlers["rc"], 'fasta')
+    #     SeqIO.write(i7_seq_unique_rc, file_handlers["rc"], 'fasta')
 
 if __name__ == '__main__':
     args = check_arg()
@@ -106,8 +127,8 @@ if __name__ == '__main__':
     #Parse index seq files and store info into ditionary
     complete_dict, unique_dict = read_index_seqs_into_dict(args.indexKit)
 
-    my_seq_indexes = read_experimental_design(args.input)
+    my_i5_indexes, my_i7_indexes = read_experimental_design(args.input)
     # print(my_seq_indexes)
-    write_index_files(my_seq_indexes, complete_dict, unique_dict, args.output)
+    write_index_files(my_i5_indexes, my_i7_indexes, complete_dict, unique_dict, args.output)
 
 
