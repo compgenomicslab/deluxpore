@@ -7,7 +7,7 @@
 
 ## Table of contents
 
-* [Installation and dependencies](## Installation and dependencies)
+* [Installation and dependencies](#install)
 * [Quick usage examples](#quick-usage-examples)
 * [How it works](#how-it-works)
     * [Find matching adapter sets](#find-matching-adapter-sets)
@@ -22,7 +22,18 @@
 * [Acknowledgements](#acknowledgements)
 * [License](#license)
 
+<a name="install"></a>
   ## Installation and dependencies
+
+
+
+
+
+
+
+
+
+  
 
 ## Installation and dependencies
 * Linux or macOS
