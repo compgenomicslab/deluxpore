@@ -15,11 +15,11 @@ process transFastqtoFasta {
     tuple val(chunkID), path(readFile)
 
     output:
-    tuple val(chunkID), path("${chunkID}.nano_trimmed.fasta")
+    tuple val(chunkID), path("${chunkID}.nano_trimmed_filtered.fasta")
 
     script:
     """
     mkdir -p "01-fastq2fasta"
-    zcat ${readFile} | seqtk seq -a - > "${chunkID}.nano_trimmed.fasta"
+    zcat ${readFile} | seqtk seq -a - > "${chunkID}.nano_trimmed_filtered.fasta"
     """
 }

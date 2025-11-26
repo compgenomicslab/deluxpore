@@ -45,7 +45,7 @@ process mapReads2DB {
     tuple val(chunkID), path(readFileFasta), path(blastDB)
 
     output:
-    tuple val(chunkID), path ("${chunkID}.nano_trimmed_2_comp_index.out")
+    tuple val(chunkID), path ("${chunkID}.nano_trimmed_filt_2_comp_index.out")
 
     script:
     """
@@ -55,7 +55,7 @@ process mapReads2DB {
         -query "${readFileFasta}" \
         -db ${blastDB}/db \
         -perc_identity 90 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sstrand" \
-        -out "${chunkID}.nano_trimmed_2_comp_index.out" \
+        -out "${chunkID}.nano_trimmed_filt_2_comp_index.out" \
         -num_threads 8
 
     """
