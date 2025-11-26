@@ -7,7 +7,7 @@
 
 ## Table of contents
 
-* [Installation and dependencies](#install)
+* [Installation and Dependencies](#install)
 * [Quick usage](#quick-usage)
 * [How it works](#how-it-works)
     * [Find matching adapter sets](#find-matching-adapter-sets)
@@ -23,12 +23,14 @@
 * [License](#license)
 
 <a name="install"></a>
-## Installation and dependencies
+## Installation and Dependencies
 This pipeline was built using [Nextflow](https://www.nextflow.io/). The whole workflow runs through a built-in conda environment. You should:
 - Install [Nextflow version >=23.04.0](https://www.nextflow.io/docs/latest/getstarted.html#installation)
-- Install [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/getting-started.html)
+- Install [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/getting-started.html) or [Mamba](https://mamba.readthedocs.io/) (recommended)
 
-No further installation is required — Nextflow downloads the pipeline automatically on first run. One important consideration related to the conda environment creation:
+No further installation is required — Nextflow downloads the pipeline automatically on first run. 
+
+### Conda Environment Options
 
 **Option 1: Let Nextflow handle the environment (simplest)**
 ```bash
@@ -46,7 +48,15 @@ mamba env create -f https://raw.githubusercontent.com/ktlina/deluxpore/main/envs
 nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/deluxpore -params-file params.json
 ```
 
-The complete workflow can be run on a personal computer, as [Oxford Nanopore](https://nanoporetech.com/) reads are tipically reported as **fastq.gz chunk files**. This combined with the smart [Nextflow wildcard](https://www.nextflow.io/docs/latest/working-with-files.html) path matcher, allows for easy paralellization. The pipelie can also be run on HPC clusters: [Nextflow](https://www.nextflow.io/) offers multiple [executor](https://www.nextflow.io/docs/latest/executor.html) options; however, this pipeline is only prepared for local and [Slurm](https://slurm.schedmd.com/documentation.html) profiles. 
+### Execution Profiles 
+The complete workflow can be run on a personal computer, as [Oxford Nanopore](https://nanoporetech.com/) reads are tipically reported as **fastq.gz chunk files**. This combined with the smart [Nextflow wildcard](https://www.nextflow.io/docs/latest/working-with-files.html) path matcher, allows for easy paralellization. The pipelie can also be run on HPC clusters: [Nextflow](https://www.nextflow.io/) offers multiple [executor](https://www.nextflow.io/docs/latest/executor.html) options; however, this pipeline is only prepared for `local` and `slurm` profiles. 
+
+| Profile | Description |
+|---------|-------------|
+| `local` | Run on local machine |
+| `slurm` | Run on HPC cluster with SLURM scheduler |
+| `conda` | Enable conda environment management |
+
 
 <a name="quick-usage"></a>
 ## Quick usage
