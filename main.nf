@@ -33,7 +33,8 @@ log.info """\
 
 include { generateIndexFiles } from './modules/00-generate_index_files'
 
-include { removeNanoporeIndexes } from './modules/00-remove_nanopore_indexes'
+include { removeNanoporeIndexes } from './modules/00-trim_and_filter'
+include { filterNanoporeReads } from './modules/00-trim_and_filter'
 
 include { transFastqtoFasta } from './modules/01-transform_to_fasta'
 
@@ -72,12 +73,13 @@ workflow {
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
     runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
 
-    if (params.trimNanoporeIndexes){
+    if (params.trimandfilterNanopore){
         // 1) Remove Nanopore indexes from read files
         removeNanoporeIndexesOutput = removeNanoporeIndexes(read_ch)
+        filterNanoporeReadsOutput = filterNanoporeReads(removeNanoporeIndexesOutput)
 
         // 3) Transform read files to fasta format
-        transFastqtoFastaOutput = transFastqtoFasta(removeNanoporeIndexesOutput)
+        transFastqtoFastaOutput = transFastqtoFasta(filterNanoporeReadsOutput)
     } else {
         transFastqtoFastaOutput = transFastqtoFasta(read_ch)
     }
