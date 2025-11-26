@@ -1,0 +1,14 @@
+{
+    "projectName": "my_project",
+    "readsDir": "/path/to/your/reads",
+    "readsFileExtension": "*.fastq.gz",
+    "experimentalDesign": "/path/to/sample_design.tsv",
+    "outDir": "./my_project.results",
+
+    "trimandfilterNanopore": false,
+    "nanoQscore": 20,
+    "nanoLength": 100,
+
+    "trimmIlluminaIndexes": false,
+    "libraryIndexSeqs": "NEBNext"
+}
