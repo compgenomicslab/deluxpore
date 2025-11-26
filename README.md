@@ -7,8 +7,7 @@
 
 ## Table of contents
 
-* [Requirements](#requirements)
-* [Installation](#installation)
+* [Installation and dependencies](## Installation and dependencies)
 * [Quick usage examples](#quick-usage-examples)
 * [How it works](#how-it-works)
     * [Find matching adapter sets](#find-matching-adapter-sets)
@@ -22,3 +21,10 @@
 * [Full usage](#full-usage)
 * [Acknowledgements](#acknowledgements)
 * [License](#license)
+
+  ## Installation and dependencies
+
+## Installation and dependencies
+* Linux or macOS
+* [Python](https://www.python.org/) 3.4 or later
+
