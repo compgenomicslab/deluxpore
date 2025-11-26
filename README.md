@@ -26,5 +26,6 @@
 ## Installation and dependencies
 This pipeline was built using [Nextflow](https://www.nextflow.io/). The whole workflow runs through a built-in conda environment. You should:
 - Install [Nextflow version >=23.04.0](https://www.nextflow.io/docs/latest/getstarted.html#installation)
-- Install [Conda]
+- Install [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/getting-started.html)
+
 The complete workflow can be run on a personal computer, as [Oxford Nanopore](https://nanoporetech.com/) reads are tipically reported as **fastq.gz chunk files**. The smart [Nextflow wildcard](https://www.nextflow.io/docs/latest/working-with-files.html) path matcher allows for easy paralellization. The pipelie can also be run on HPC clusters: [Nextflow](https://www.nextflow.io/) offers multiple [executor](https://www.nextflow.io/docs/latest/executor.html) options; however, this pipeline is only prepared for local and [Slurm](https://slurm.schedmd.com/documentation.html) profiles. 
