@@ -72,4 +72,7 @@ Simple steps to run deluxpore:
       ```bash
       cp examples/params_file.json my_params.json
       ```
-3. 
+3. Run:
+   ```bash
+   nextflow run ktlina/deluxpore -profile local,conda -params-file my_params.json
+   ```
