@@ -68,10 +68,8 @@ Simple steps to run deluxpore:
      sample2,i501,i702
      sample3,i501,i703
      ```
-  2. Copy the example params file and edit with your paths:
+   2. Copy the example params file and edit with your paths:
       ```bash
       cp examples/params_file.json my_params.json
       ```
-
-
-```
+3. 
