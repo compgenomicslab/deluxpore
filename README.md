@@ -8,17 +8,8 @@
 ## Table of contents
 
 * [Installation and Dependencies](#install)
-* [Quick usage](#quick-usage)
-* [How it works](#how-it-works)
-    * [Find matching adapter sets](#find-matching-adapter-sets)
-    * [Trim adapters from read ends](#trim-adapters-from-read-ends)
-    * [Split reads with internal adapters](#split-reads-with-internal-adapters)
-    * [Discard reads with internal adapters](#discard-reads-with-internal-adapters)
-    * [Barcode demultiplexing](#barcode-demultiplexing)
-    * [Barcode demultiplexing with Albacore](#barcode-demultiplexing-with-albacore)
-    * [Output](#output)
-    * [Verbose output](#verbose-output)
-* [Full usage](#full-usage)
+* [Simple Usage](#simple-usage)
+* [Full Usage](#full-usage)
 * [Acknowledgements](#acknowledgements)
 * [License](#license)
 
@@ -58,8 +49,8 @@ The complete workflow can be run on a personal computer, as [Oxford Nanopore](ht
 | `conda` | Enable conda environment management |
 
 
-<a name="quick-usage"></a>
-## Quick usage
+<a name="simple-usage"></a>
+## Simple Usage
 Simple steps to run deluxpore:
   1. Create `experimental_design.csv` file, where first row is the final desired sample ID, second row is the i5 Illumina index, and third row is the i7 Illumina index:
      
@@ -76,3 +67,47 @@ Simple steps to run deluxpore:
    ```bash
    nextflow run ktlina/deluxpore -profile local,conda -params-file my_params.json
    ```
+
+<a name="quick-usage"></a>
+## Full Usage
+```angular2html
+nextflow run -latest ktlina/deluxpore/main.nf --help
+
+=========================================
+ D E L U X P O R E   P I P E L I N E
+=========================================
+
+Usage:
+  nextflow run ktlina/deluxpore -profile local,conda -params-file params.yml
+
+Required parameters:
+  --projectName          Name for your project
+  --readsDir             Path to directory containing Nanopore reads
+  --experimentalDesign   Path to sample-to-index mapping file (TSV)
+  --outDir               Output directory
+  --readsFileExtension   Custom file extension pattern [default: null]
+  --libraryIndexSeqs     Illumina index sequence set name [default: null]
+
+Nanopore filtering:
+  --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
+  --nanoQscore             Minimum quality score [default: 20]
+  --nanoLength             Minimum read length [default: 100]
+
+Illumina trimming:
+  --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
+
+Resource limits:
+  --max_cpus             Maximum CPUs to use [default: auto-detected]
+  --max_memory           Maximum memory to use [default: 16 GB]
+
+Other:
+  --conda_env            Path to pre-built conda environment [default: null]
+  --help                 Show this help message
+
+Examples:
+  # Basic local run
+  nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
+
+  # With pre-built conda environment
+  nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/env -params-file params.json
+```
