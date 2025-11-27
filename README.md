@@ -11,7 +11,6 @@
 * [Simple Usage](#simple-usage)
 * [Full Usage](#full-usage)
 * [Acknowledgements](#acknowledgements)
-* [License](#license)
 
 <a name="install"></a>
 ## Installation and Dependencies
