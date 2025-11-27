@@ -110,3 +110,7 @@ Examples:
   # Using Nextera indexes
   nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
 ```
+
+<a name="acknowledgements"></a>
+## Acknowledgements
+The original demultiplexing approach was conceived and prototyped by [Claudia Sanchis López](https://github.com/compgenomicslab/demultiplex-ont-illumina). 
