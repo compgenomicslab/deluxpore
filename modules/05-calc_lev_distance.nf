@@ -1,6 +1,6 @@
 process calcLevDistance {    
 
-    conda "${params.general_env}"
+    params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
 
     tag { "${params.projectName}.rCalcLevDistance.${chunkID}" }
 

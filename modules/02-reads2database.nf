@@ -1,7 +1,7 @@
 process createDB {    
     label 'fast'
     
-    conda "${params.general_env}"
+    params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
 
     tag { "${params.projectName}.rcreateDB" }
 
@@ -29,7 +29,7 @@ process createDB {
 
 process mapReads2DB {    
 
-    conda "${params.general_env}"
+    params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
 
     tag { "${params.projectName}.rReads2DB.${chunkID}" }
 
@@ -49,8 +49,7 @@ process mapReads2DB {
 
     script:
     """
-    echo "Using conda environment: ${params.general_env}"
-
+    
     blastn -task blastn \
         -query "${readFileFasta}" \
         -db ${blastDB}/db \

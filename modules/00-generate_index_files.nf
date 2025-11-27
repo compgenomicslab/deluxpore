@@ -1,7 +1,7 @@
 process generateIndexFiles {    
     label 'fast'
 
-    conda "${params.general_env}"
+    conda params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
     
     tag { "${params.projectName}.rGenIndex" }
 

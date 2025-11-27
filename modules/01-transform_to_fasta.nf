@@ -1,12 +1,11 @@
 process transFastqtoFasta {
-    conda "${params.general_env}"
+    params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
     
     label 'fast'
 
     tag { "${params.projectName}.rTransToFasta.${chunkID}" }
 
     publishDir "${params.outDir}/01-fastq2fasta", mode: 'copy', overwrite: 'false'
-
 
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
     maxRetries 2

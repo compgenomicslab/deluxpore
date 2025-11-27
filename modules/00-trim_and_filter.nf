@@ -1,6 +1,6 @@
 process removeNanoporeIndexes {
-    conda "${params.general_env}"
-    
+    conda params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
+
     label 'filter_trim'
 
     tag { "${params.projectName}.rRemoveNanoIndexes.${chunkID}" }
@@ -28,7 +28,7 @@ process removeNanoporeIndexes {
 }
 
 process filterNanoporeReads {
-    conda "${params.general_env}"
+    conda params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
     
     label 'filter_trim'
 

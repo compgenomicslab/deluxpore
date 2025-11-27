@@ -1,7 +1,7 @@
 process removeIlluminaIndexes {    
     label 'fast'
 
-    conda "${params.general_env}"
+    params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
 
     tag { "${params.projectName}.rRemoveIllIndexes.${chunkID}" }
 
