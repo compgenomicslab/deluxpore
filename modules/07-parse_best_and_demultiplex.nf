@@ -5,9 +5,6 @@ process parseBestDemulti {
 
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true', pattern:"07-parse_best_and_demultiplex_per_chunk/*.json"
 
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
-
     input:
     tuple val(chunkID), path(readFileFasta), path(levDistMat), path(expDesFile)
 

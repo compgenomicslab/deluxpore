@@ -7,9 +7,6 @@ process removeNanoporeIndexes {
 
     publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true'
 
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
-
     input:
     tuple val(chunkID), path(readFile)
 
@@ -35,9 +32,6 @@ process filterNanoporeReads {
     tag { "${params.projectName}.rFilterNanoReads.${chunkID}" }
 
     publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true'
-
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
 
     input:
     tuple val(chunkID), path(trimmedFile)

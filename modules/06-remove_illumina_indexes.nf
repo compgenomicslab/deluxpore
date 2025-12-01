@@ -1,5 +1,5 @@
 process removeIlluminaIndexes {    
-    label 'fast'
+    label 'medium'
 
     params.conda_env ?: "${projectDir}/envs/deluxpore.yml"
 
@@ -7,8 +7,6 @@ process removeIlluminaIndexes {
 
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true'
 
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
 
     input:
     tuple val(chunkID), path(readFileFasta), path(completeIndexSeqs)

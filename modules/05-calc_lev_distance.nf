@@ -5,9 +5,7 @@ process calcLevDistance {
     tag { "${params.projectName}.rCalcLevDistance.${chunkID}" }
 
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true'
-
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
+    
 
     input:
     tuple val(chunkID), path(readUniqIndex), path(projectIndexFiles)

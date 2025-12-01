@@ -7,12 +7,6 @@ process createDB {
 
     publishDir "${params.outDir}/02-trim_reads_2_complete_indexes/", mode: 'copy'
 
-    when:
-    !file("${params.outDir}/02-trim_reads_2_complete_indexes/${params.projectName}_db").exists()
-
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
-
     input:
     path (indexFile)
 
@@ -35,11 +29,8 @@ process mapReads2DB {
 
     publishDir "${params.outDir}/02-trim_reads_2_complete_indexes/", mode: 'copy', overwrite: 'false'
 
-    when:
-    !file("${params.outDir}/02-trim_reads_2_complete_indexes/").exists()
-
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
+    // when:
+    // !file("${params.outDir}/02-trim_reads_2_complete_indexes/").exists()
 
     input:
     tuple val(chunkID), path(readFileFasta), path(blastDB)
@@ -49,13 +40,12 @@ process mapReads2DB {
 
     script:
     """
-    
     blastn -task blastn \
         -query "${readFileFasta}" \
         -db ${blastDB}/db \
         -perc_identity 90 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sstrand" \
         -out "${chunkID}.nano_trimmed_filt_2_comp_index.out" \
-        -num_threads 8
+        -num_threads ${task.cpus}
 
     """
 }

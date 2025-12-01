@@ -7,12 +7,6 @@ process generateIndexFiles {
 
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false'
 
-    when:
-    !file("${params.outDir}/indexes").exists()
-
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
-
     input:
     file (experimentalDesignInput)
 

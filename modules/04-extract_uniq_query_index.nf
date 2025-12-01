@@ -6,10 +6,7 @@ process extractUniqQueryIndex {
     tag { "${params.projectName}.rExtractUniqueQuery.${chunkID}" }
 
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false'
-
-    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
-    maxRetries 2
-
+    
     input:
     tuple val(chunkID), path(readFileFasta), path(blastOut)
 
