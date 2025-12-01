@@ -77,89 +77,112 @@ def create_best_distance_dict(distance_file):
 
 
 def parse_best_dictionary_should_update(best_dict, exp_des_dict):
-    GroupData = namedtuple('GroupData', ['i5', 'i5_dist', 'i7', 'i7_dist'])
+    GroupData = namedtuple('GroupData', ['i5', 'i5_dist', 'i5_qstart', 'i7', 'i7_dist', 'i7_qstart'])
     grouped_data = {}
     for key, (min_value, index_name) in best_dict.items():
         print(key)
         read_name, _, align_info = key.split('.')  # split key name into read name and the potential best index it was mapped to
+        qstart = int(align_info.split('-')[0].replace('q', ''))
 
         if read_name not in grouped_data:  # check if the read was already checked
             # initialize read if not seen before
-            grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
+            grouped_data[read_name] = GroupData(
+                i5='', i5_dist=float('inf'), i5_qstart=float('inf'), 
+                i7='', i7_dist=float('inf'), i7_qstart=float('inf'))
         current = grouped_data[read_name]
+        
         if index_name.startswith("i5"):
             should_update = False
+
+            # Priority: 1) lower distance, 2) alignment closer to start, 3) valid combo
             if min_value < current.i5_dist:
                 should_update = True
-            elif min_value == current.i5_dist and index_name != current.i5:
-                print(read_name)
-                print(f"min value '{min_value}' is the same as the current min value '{current.i5_dist}' " 
-                      f"and new i5 '{index_name}' is different to current i5 '{current.i5}'")
-                # Handle tie case - check if this combination is valid
-                current_combo = [current.i5, current.i7] if current.i5 and current.i7 else None
-                new_combo = [index_name, current.i7] if current.i7 else None
-                # Prefer valid combinations over invalid ones
-                current_is_valid = validate_index_pairs(exp_des_dict, current_combo)
-                new_is_valid = validate_index_pairs(exp_des_dict, new_combo)
-
-                if new_is_valid and not current_is_valid:
+            elif min_value == current.i5_dist:
+                # Same distance → prefer alignment closer to start (lower qstart)
+                if qstart < current.i5_qstart:
                     should_update = True
-                    print(f"update, new combination '{new_combo}' is valid and current '{current_combo}' is not")
-                    print("updated i5 value for read:", read_name)
+                    print(f"Same distance, but closer to start ({qstart} < {current.i5_qstart}), updating i5")
+                elif qstart == current.i5_qstart and index_name != current.i5:
+                    # Same position, different index → check valid combo
+                    print(read_name)
+                    print(f"min value '{min_value}' is the same as the current min value '{current.i5_dist}' " 
+                        f"and new i5 '{index_name}' is different to current i5 '{current.i5}'")
+                    # Handle tie case - check if this combination is valid
+                    current_combo = [current.i5, current.i7] if current.i5 and current.i7 else None
+                    new_combo = [index_name, current.i7] if current.i7 else None
+                    # Prefer valid combinations over invalid ones
+                    current_is_valid = validate_index_pairs(exp_des_dict, current_combo)
+                    new_is_valid = validate_index_pairs(exp_des_dict, new_combo)
 
-                elif current_is_valid and not new_is_valid:
-                    # Current is valid
-                    should_update = False
-                    print(f"do not update, combination '{current_combo}' is valid and '{new_combo}' is not")
+                    if new_is_valid and not current_is_valid:
+                        should_update = True
+                        print(f"update, new combination '{new_combo}' is valid and current '{current_combo}' is not")
+                        print("updated i5 value for read:", read_name)
 
-                elif new_is_valid and current_is_valid:
-                    grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
-                    print(read_name, " could be attributed to two different samples, reverting to empty record")
+                    elif current_is_valid and not new_is_valid:
+                        # Current is valid
+                        should_update = False
+                        print(f"do not update, combination '{current_combo}' is valid and '{new_combo}' is not")
+
+                    elif new_is_valid and current_is_valid:
+                        grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
+                        print(read_name, " could be attributed to two different samples, reverting to empty record")
+
 
             if should_update:
                 grouped_data[read_name] = GroupData(
                     i5=index_name,
                     i5_dist=min_value,
+                    i5_qstart=qstart,
                     i7=current.i7,
-                    i7_dist=current.i7_dist
+                    i7_dist=current.i7_dist,
+                    i7_qstart=current.i7_qstart
                 )
 
         elif index_name.startswith("i7"):
             should_update = False
             if min_value < current.i7_dist:
                 should_update = True
-            elif min_value == current.i7_dist and index_name != current.i7:
-                print(read_name)
-                print(f"min value '{min_value}' is the same as the current min value '{current.i7_dist}' " 
-                      f"and new i7 '{index_name}' is different to current i7 '{current.i7}'")
-                # Handle tie case - check if this combination is valid
-                current_combo = [current.i5, current.i7] if current.i5 and current.i7 else None
-                new_combo = [current.i5, index_name] if current.i5 else None
-                print(current_combo, new_combo)
-                # Prefer valid combinations over invalid ones
-                current_is_valid = validate_index_pairs(exp_des_dict, current_combo)
-                new_is_valid = validate_index_pairs(exp_des_dict, new_combo)
-                print(current_is_valid, new_is_valid)
-                if new_is_valid and not current_is_valid:
+            elif min_value == current.i7_dist:
+                # Same distance → prefer alignment closer to end (higher qstart)
+                if qstart > current.i7_qstart:
                     should_update = True
-                    print(f"update, new combination '{new_combo}' is valid and current '{current_combo}' is not")
-                    print("updated i7 value for read:", read_name)
-                    
-                elif current_is_valid and not new_is_valid:
-                    # Current is valid
-                    should_update = False
-                    print(f"do not update, combination '{current_combo}' is valid and '{new_combo}' is not")
+                    print(f"Same distance, but closer to end ({qstart} > {current.i7_qstart}), updating i7")
+                elif qstart == current.i7_qstart and index_name != current.i7:
+                    # Same position, different index → check valid combo
+                    print(read_name)
+                    print(f"min value '{min_value}' is the same as the current min value '{current.i7_dist}' " 
+                        f"and new i7 '{index_name}' is different to current i7 '{current.i7}'")
+                    # Handle tie case - check if this combination is valid
+                    current_combo = [current.i5, current.i7] if current.i5 and current.i7 else None
+                    new_combo = [current.i5, index_name] if current.i5 else None
+                    print(current_combo, new_combo)
+                    # Prefer valid combinations over invalid ones
+                    current_is_valid = validate_index_pairs(exp_des_dict, current_combo)
+                    new_is_valid = validate_index_pairs(exp_des_dict, new_combo)
+                    print(current_is_valid, new_is_valid)
+                    if new_is_valid and not current_is_valid:
+                        should_update = True
+                        print(f"update, new combination '{new_combo}' is valid and current '{current_combo}' is not")
+                        print("updated i7 value for read:", read_name)
+                        
+                    elif current_is_valid and not new_is_valid:
+                        # Current is valid
+                        should_update = False
+                        print(f"do not update, combination '{current_combo}' is valid and '{new_combo}' is not")
 
-                elif new_is_valid and current_is_valid:
-                    grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
-                    print(read_name, "could be attributed to two different samples, reverting to empty record")
+                    elif new_is_valid and current_is_valid:
+                        grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
+                        print(read_name, "could be attributed to two different samples, reverting to empty record")
 
             if should_update:
                 grouped_data[read_name] = GroupData(
                     i5=current.i5,
                     i5_dist=current.i5_dist,
+                    i5_qstart=current.i5_qstart,
                     i7=index_name,
-                    i7_dist=min_value
+                    i7_dist=min_value,
+                    i7_qstart=qstart
                 )
     return grouped_data
 
@@ -252,8 +275,9 @@ if __name__ == "__main__":
     clean_reads_file = args.fasta_reads
     chunkID = (os.path.splitext(os.path.basename(distance_table))[0]).split(".")[0]
 
-    with open(clean_reads_file, 'r') as reads_file:
-        reads_dict = SeqIO.to_dict(SeqIO.parse(reads_file, 'fasta'))
+    # with open(clean_reads_file, 'r') as reads_file:
+    #     reads_dict = SeqIO.to_dict(SeqIO.parse(reads_file, 'fasta'))
+    reads_dict = SeqIO.index(clean_reads_file, 'fasta')
 
     exp_des_dict = parse_exp_design(args.experimental_design)
     best_dict = create_best_distance_dict(distance_table)
