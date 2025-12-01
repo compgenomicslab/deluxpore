@@ -37,7 +37,7 @@ def helpMessage() {
                              Accepted values: NEBNext, NEXTERA
 
     Optional parameters:
-      --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
+      --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
       --nanoQscore             Minimum quality score [default: 20]
       --nanoLength             Minimum read length [default: 100]
       --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
