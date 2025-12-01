@@ -5,13 +5,71 @@ nextflow.enable.dsl=2
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-params.general_env = "/home/acatalina/miniforge3/envs/metag_long"
 params.bin = "scripts"
 
+/*
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *   Help message
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+
+def helpMessage() {
+    log.info """
+    =========================================
+     D E L U X P O R E   P I P E L I N E
+    =========================================
+    
+    Usage:
+      nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
+    
+    Required parameters:
+      --projectName          Name for your project
+      --readsDir             Path to directory containing Nanopore reads
+      --readsFileExtension   File extension pattern (e.g., *.fastq.gz)
+      --experimentalDesign   Path to sample-to-index mapping file (TSV)
+      --outDir               Output directory
+      --libraryIndexSeqs     Illumina index kit used for multiplexing
+                             Accepted values: NEBNext, NEXTERA
+
+    Optional parameters:
+      --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
+      --nanoQscore             Minimum quality score [default: 20]
+      --nanoLength             Minimum read length [default: 100]
+      --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
+
+    Resource limits:
+      --max_cpus             Maximum CPUs to use [default: auto-detected]
+      --max_memory           Maximum memory to use [default: 16 GB]
+
+    Other:
+      --conda_env            Path to pre-built conda environment [default: null]
+      --help                 Show this help message
+
+    Examples:
+      # Using NEBNext indexes
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nebnext -params-file params.json
+
+      # Using Nextera indexes
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
+
+    """.stripIndent()
+}
+
+// Show version if --version is specified
+if (params.version) {
+    log.info "deluxpore version: ${workflow.manifest.version}"
+    exit 0
+}
+
+// Show help message if --help is specified
+if (params.help) {
+    helpMessage()
+    exit 0
+}
 
 log.info """\
     ================================================
-     N X F - D E M U L T I P L E X   P I P E L I N E
+           D E L U X P O R E  P I P E L I N E
     ================================================
     Project Name   : ${params.projectName}
     Reads Dir      : ${params.readsDir}
@@ -63,15 +121,21 @@ include { concatenateSamples } from './modules/08-concat_sample_fna_files'
 */
 workflow {
 
-    read_ch = Channel.fromPath("${params.readsDir}/${params.readsFileExtension}", type: 'file')
-    read_ch = read_ch.map { file ->
-        def chunkID = file.name.replaceAll("\\.fastq\\.gz", "")
-        return [chunkID, file]
-    }
-
     // 0) Generate index files one per demultiplexing experiment
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
     runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
+
+    read_ch = Channel.fromPath("${params.readsDir}/${params.readsFileExtension}", type: 'file')
+    // read_ch = read_ch.map { file ->
+    //     def chunkID = file.name.replaceAll("\\.fastq\\.gz", "")
+    //     return [chunkID, file]
+    // }
+    read_ch = read_ch.map { file ->
+        def extension = params.readsFileExtension
+            .replace("*", "")  // Remove glob asterisk: "*.fastq.gz" → ".fastq.gz"
+        def chunkID = file.name.replace(extension, "")
+    return [chunkID, file]
+    }
 
     if (params.trimandfilterNanopore){
         // 1) Remove Nanopore indexes from read files
