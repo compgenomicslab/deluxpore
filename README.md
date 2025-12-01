@@ -82,7 +82,12 @@ Usage:
 Required parameters:
   --projectName          Name for your project
   --readsDir             Path to directory containing Nanopore reads
-  --readsFileExtension   File extension pattern (e.g., *.fastq.gz)
+  --readsFileExtension   Glob pattern to match input read files (e.g., *.fastq.gz, *.fq.gz, *.fastq, *.fq)
+                         Each matched file is processed as a separate chunk in parallel.
+                         Examples:
+                           "*.fastq.gz"     - Process all gzipped fastq files as separate chunks
+                           "sample1.fq.gz"  - Process a single file
+                           "batch_*.fq"     - Process all files matching the pattern
   --experimentalDesign   Path to sample-to-index mapping file (TSV)
   --outDir               Output directory
   --libraryIndexSeqs     Illumina index kit used for multiplexing
