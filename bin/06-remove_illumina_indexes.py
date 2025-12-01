@@ -109,13 +109,16 @@ if __name__ == "__main__":
     complete_index_reads = args.complete_index_reads #fasta file with complete illumina indexes for each read (all possible indexes based on the mappings)
     chunkID = (os.path.splitext(os.path.basename(nanopore_trimmed_reads))[0]).split(".")[0]
     
-    # load nanopore trimmed reads into dictionary
-    with open(nanopore_trimmed_reads, 'r') as reads_file:
-        reads_dict = SeqIO.to_dict(SeqIO.parse(reads_file, 'fasta'))
+    # # load nanopore trimmed reads into dictionary
+    # with open(nanopore_trimmed_reads, 'r') as reads_file:
+    #     reads_dict = SeqIO.to_dict(SeqIO.parse(reads_file, 'fasta'))
 
-    # load complete index sequences for each read into dictionary
-    with open(complete_index_reads, 'r') as comp_index_file:
-        comp_index_reads = SeqIO.to_dict(SeqIO.parse(comp_index_file, 'fasta'))
+    # # load complete index sequences for each read into dictionary
+    # with open(complete_index_reads, 'r') as comp_index_file:
+    #     comp_index_reads = SeqIO.to_dict(SeqIO.parse(comp_index_file, 'fasta'))
+    
+    reads_dict = SeqIO.index(nanopore_trimmed_reads, 'fasta')
+    comp_index_reads = SeqIO.index(complete_index_reads, 'fasta')
 
     parsed_complete_index_read_dicts = parse_complete_index_read_seqs(comp_index_reads)
 

@@ -159,8 +159,9 @@ def process_blast_output(blast_file, fasta_file, output_file):
 
     # Load query sequences
     query_sequences = {}
-    for record in SeqIO.parse(fasta_file, 'fasta'):
-        query_sequences[record.id] = str(record.seq)
+    # for record in SeqIO.parse(fasta_file, 'fasta'):
+    #     query_sequences[record.id] = str(record.seq)
+    query_sequences = SeqIO.index(fasta_file, 'fasta')
 
     # Process BLAST output
     results = []
@@ -173,7 +174,8 @@ def process_blast_output(blast_file, fasta_file, output_file):
                     index_type = get_index_type(blast_data['sseqid'])
                     
                     if index_type and blast_data['qseqid'] in query_sequences:
-                        query_seq = query_sequences[blast_data['qseqid']]
+                        # query_seq = query_sequences[blast_data['qseqid']]
+                        query_seq = str(query_sequences[blast_data['qseqid']].seq)
                         unique_seq = extract_unique_sequence(query_seq, blast_data, index_type)
                         
                         if unique_seq:
@@ -199,7 +201,7 @@ def process_blast_output(blast_file, fasta_file, output_file):
                 description=""
             )
 
-            writer.write_record(final_seq) #write record to output file
+            writer.write_record(final_seq)
 
     return results
 

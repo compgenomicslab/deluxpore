@@ -52,6 +52,7 @@ def parse_blast_output_write_fasta(blast_out, reads_dict, reads_out):
             qstart = int(parts[6]) - 1
             qend = int(parts[7])
 
+
             full_seq = reads_dict[read_id]
             extracted_seq = full_seq.seq[qstart:qend]
             output_id = f"{full_seq.id}.{index_id}.{qstart+1}.{qend}"
@@ -77,8 +78,9 @@ if __name__ == '__main__':
     args = check_arg()
 
     # Read input sequences to dictionary
-    with open(args.reads, 'r') as read_seqs:
-        reads_dict = SeqIO.to_dict(SeqIO.parse(read_seqs, "fasta"))
+    reads_dict = SeqIO.index(args.reads, "fasta")
+    # with open(args.reads, 'r') as read_seqs:
+    #     reads_dict = SeqIO.to_dict(SeqIO.parse(read_seqs, "fasta"))
 
     # Parse BLAST output and write new fasta file containing index sequences for each read
     parse_blast_output_write_fasta(args.input, reads_dict, args.output)

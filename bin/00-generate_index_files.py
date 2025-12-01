@@ -66,7 +66,6 @@ def read_experimental_design(input_file):
     return i5_indexes, i7_indexes
 
 def create_file_handlers(output):
-    # Create file handlers using context manager
     files = {
         "complete": open(f'{output}/complete_index_seqs.fna', 'w'),
         "unique": open(f'{output}/unique_index_seqs.fna', 'w'),
