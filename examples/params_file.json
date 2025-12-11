@@ -5,11 +5,11 @@
     "experimentalDesign": "/path/to/sample_design.tsv",
     "outDir": "./my_project.results",
 
-    "trimandfilterNanopore": false,
+    "trimandfilterNanopore": true,
     "nanoQscore": 20,
     "nanoLength": 100,
 
-    "trimmIlluminaIndexes": false,
+    "trimmIlluminaIndexes": true,
     "libraryIndexSeqs": "NEBNext",
     "publishIntermediate": true
 }
