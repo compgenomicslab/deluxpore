@@ -54,7 +54,7 @@ def read_experimental_design(input_file):
         lines = file.readlines()
 
         for line in lines:
-            info = line.strip().split(" ")
+            info = line.strip().split("\t")
             sample = info[0]
             i5 = str(info[1])
             i7 = str(info[2])

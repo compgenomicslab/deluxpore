@@ -46,7 +46,7 @@ def parse_exp_design(file_path):
     exp_des_dict = {}
     with open(file_path, 'r') as file:
         for line in file:
-            info = line.strip().split(' ')
+            info = line.strip().split('\t')
             i5 = info[1]
             i7 = info[2]
             exp_des_dict[info[0]] = [i5, i7]
