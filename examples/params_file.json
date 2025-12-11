@@ -10,5 +10,6 @@
     "nanoLength": 100,
 
     "trimmIlluminaIndexes": false,
-    "libraryIndexSeqs": "NEBNext"
+    "libraryIndexSeqs": "NEBNext",
+    "publishIntermediate": true
 }
