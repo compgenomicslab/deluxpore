@@ -15,8 +15,8 @@
 <a name="install"></a>
 ## Installation and Dependencies
 This pipeline was built using [Nextflow](https://www.nextflow.io/). The whole workflow runs through a built-in conda environment. You should:
-- Install [Nextflow version >=23.04.0](https://www.nextflow.io/docs/latest/getstarted.html#installation)
 - Install [Conda](https://docs.conda.io/projects/conda/en/stable/user-guide/getting-started.html) or [Mamba](https://mamba.readthedocs.io/) (recommended)
+- Install [Nextflow version >=23.04.0](https://www.nextflow.io/docs/latest/getstarted.html#installation)
 
 No further installation is required — Nextflow downloads the pipeline automatically on first run. 
 
@@ -39,7 +39,7 @@ nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/del
 ```
 
 ### Execution Profiles 
-The complete workflow can be run on a personal computer, as [Oxford Nanopore](https://nanoporetech.com/) reads are typically reported as **fastq.gz chunk files**. This combined with the smart [Nextflow wildcard](https://www.nextflow.io/docs/latest/working-with-files.html) path matcher, allows for easy parallelization. The pipeline can also be run on HPC clusters: [Nextflow](https://www.nextflow.io/) offers multiple [executor](https://www.nextflow.io/docs/latest/executor.html) options; however, this pipeline is only prepared for `local` and `slurm` profiles. 
+[Oxford Nanopore](https://nanoporetech.com/) sequencing runs natively output reads as multiple fastq.gz chunk files, enabling parallelization without additional preprocessing. Deluxpore leverages this structure alongside Nextflow's wildcard path matching to distribute demultiplexing across available computational resources, scaling efficiently from personal workstations to HPC clusters. The pipeline can also be run on HPC clusters: [Nextflow](https://www.nextflow.io/) offers multiple [executor](https://www.nextflow.io/docs/latest/executor.html) options; however, this pipeline is only prepared for `local` and `slurm` profiles. 
 
 | Profile | Description |
 |---------|-------------|
@@ -47,6 +47,8 @@ The complete workflow can be run on a personal computer, as [Oxford Nanopore](ht
 | `slurm` | Run on HPC cluster with SLURM scheduler |
 | `conda` | Enable conda environment management |
 
+> [!NOTE]
+> Note: SLURM queue names defined in the configuration files (e.g., 'fast', 'medium') are specific to our institutional HPC system. Users should modify these values in the SLURM configuration to match their local cluster queue names.
 
 <a name="simple-usage"></a>
 ## Simple Usage
