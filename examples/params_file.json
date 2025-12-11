@@ -9,7 +9,7 @@
     "nanoQscore": 20,
     "nanoLength": 100,
 
-    "trimmIlluminaIndexes": true,
+    "trimmIlluminaIndexes": false,
     "libraryIndexSeqs": "NEBNext",
     "publishIntermediate": true
 }
