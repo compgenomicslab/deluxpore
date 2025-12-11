@@ -37,7 +37,7 @@ def helpMessage() {
                              Accepted values: NEBNext, NEXTERA
 
     Optional parameters:
-      --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
+      --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
       --nanoQscore             Minimum quality score [default: 20]
       --nanoLength             Minimum read length [default: 100]
       --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
@@ -48,6 +48,9 @@ def helpMessage() {
 
     Other:
       --conda_env            Path to pre-built conda environment [default: null]
+      --publishIntermediate  Publish intermediate files [default: false]
+      
+      --version              Show pipeline version    
       --help                 Show this help message
 
     Examples:
@@ -76,12 +79,13 @@ log.info """\
     ================================================
            D E L U X P O R E  P I P E L I N E
     ================================================
-    Project Name   : ${params.projectName}
-    Reads Dir      : ${params.readsDir}
-    Experimental Design: ${params.experimentalDesign}
-    Output Dir     : ${params.outDir}
-    Config Profile : ${workflow.profile}
-    Start Time     : ${workflow.start}
+    Project Name        : ${params.projectName}
+    Reads Dir           : ${params.readsDir}
+    Experimental Design : ${params.experimentalDesign}
+    Output Dir          : ${params.outDir}
+    Work dir            : ${workDir}
+    Config Profile      : ${workflow.profile}
+    Start Time          : ${workflow.start}
     """
     .stripIndent()
 
@@ -125,7 +129,7 @@ include { concatenateSamples } from './modules/08-concat_sample_fna_files'
     ~~~~~~~~~~~~~~~~~~
 */
 workflow {
-
+    
     // 0) Generate index files one per demultiplexing experiment
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
     runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
@@ -163,9 +167,9 @@ workflow {
     mapReads2DBOutput = mapReads2DB(mapReads2DBInput)
     // mapReads2DBOutput.view()
 
-    // 5) Parse BLAST output to extract unique query index sequences
-    parseBlastOutputInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
-    parseBlastOutOutput = parseBlastOut(parseBlastOutputInput)
+    // // 5) Parse BLAST output to extract complete query index sequences
+    // parseBlastOutputInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
+    // parseBlastOutOutput = parseBlastOut(parseBlastOutputInput)
 
     // 6) Extract unique query indexes from query complete fasta sequence files based on mapping to subject index sequences and their fixed position
     extractUniqQueryIndexInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
@@ -175,9 +179,12 @@ workflow {
     calcLevDistanceInput = extractUniqQueryIndexOutput.combine(runIndexFilesOutput.map { [it] })
     calcLevDistanceOutput = calcLevDistance(calcLevDistanceInput)
 
-    // 6.1) Remove Illumina index sequences 
     if (params.trimmIlluminaIndexes) {
-        // Remove Ilumina indcex from Nanopore clean fasta sequences
+        // 5) Parse BLAST output - only needed for trimming
+        parseBlastOutputInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
+        parseBlastOutOutput = parseBlastOut(parseBlastOutputInput)
+        
+        // Remove Illumina index from Nanopore clean fasta sequences
         removeIlluminaIndexesInput = transFastqtoFastaOutput
             .join(parseBlastOutOutput)
         removeIlluminaIndexesOutput = removeIlluminaIndexes(removeIlluminaIndexesInput)
