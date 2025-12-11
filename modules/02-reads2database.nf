@@ -5,7 +5,7 @@ process createDB {
 
     tag { "${params.projectName}.rcreateDB" }
 
-    publishDir "${params.outDir}/02-trim_reads_2_complete_indexes/", mode: 'copy'
+    publishDir "${params.outDir}/02-trim_reads_2_complete_indexes/", mode: 'copy', enabled: params.publishIntermediate
 
     input:
     path (indexFile)
@@ -27,7 +27,7 @@ process mapReads2DB {
 
     tag { "${params.projectName}.rReads2DB.${chunkID}" }
 
-    publishDir "${params.outDir}/02-trim_reads_2_complete_indexes/", mode: 'copy', overwrite: 'false'
+    publishDir "${params.outDir}/02-trim_reads_2_complete_indexes/", mode: 'copy', overwrite: 'false', enabled: params.publishIntermediate
 
     // when:
     // !file("${params.outDir}/02-trim_reads_2_complete_indexes/").exists()

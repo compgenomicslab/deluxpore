@@ -5,7 +5,7 @@ process generateIndexFiles {
     
     tag { "${params.projectName}.rGenIndex" }
 
-    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false'
+    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false', enabled: params.publishIntermediate
 
     input:
     file (experimentalDesignInput)

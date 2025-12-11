@@ -5,7 +5,7 @@ process transFastqtoFasta {
 
     tag { "${params.projectName}.rTransToFasta.${chunkID}" }
 
-    publishDir "${params.outDir}/01-fastq2fasta", mode: 'copy', overwrite: 'false'
+    publishDir "${params.outDir}/01-fastq2fasta", mode: 'copy', overwrite: 'false', enabled: params.publishIntermediate
     
     input:
     tuple val(chunkID), path(readFile)

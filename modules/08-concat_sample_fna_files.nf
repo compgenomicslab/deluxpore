@@ -3,16 +3,17 @@ process concatenateSamples {
     
     tag { "${params.projectName}.rconcatenateSamples.${sampleName}" }
 
-    publishDir "${params.outDir}/08-final_demultiplex", mode: 'copy'
+    publishDir "${params.outDir}/demultiplexed_samples", mode: 'copy'
     
     input:
     tuple val(sampleName), path(sampleFiles)
     
     output:
-    tuple val(sampleName), path("${sampleName}.trimmed.fna")
+    tuple val(sampleName), path("${sampleName}*fna")
     
     script:
+    def suffix = params.trimmIlluminaIndexes ? ".trimmed.fna" : ".fna"
     """
-    cat ${sampleFiles.join(' ')} > ${sampleName}.trimmed.fna
+    cat ${sampleFiles.join(' ')} > ${sampleName}${suffix}
     """
 }

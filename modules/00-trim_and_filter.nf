@@ -32,7 +32,6 @@ process filterNanoporeReads {
     tag { "${params.projectName}.rFilterNanoReads.${chunkID}" }
 
     publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true'
-
     input:
     tuple val(chunkID), path(trimmedFile)
 

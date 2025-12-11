@@ -5,7 +5,7 @@ process extractUniqQueryIndex {
 
     tag { "${params.projectName}.rExtractUniqueQuery.${chunkID}" }
 
-    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false'
+    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false', enabled: params.publishIntermediate
     
     input:
     tuple val(chunkID), path(readFileFasta), path(blastOut)

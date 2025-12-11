@@ -3,7 +3,10 @@ process parseBestDemulti {
 
     tag { "${params.projectName}.rparseBestDemulti.${chunkID}" }
 
-    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true', pattern:"07-parse_best_and_demultiplex_per_chunk/*.json"
+    publishDir "${params.outDir}/demultiplex_assignments.per_chunk", 
+        mode: 'copy', overwrite: 'true', 
+        pattern:"07-parse_best_and_demultiplex_per_chunk/*.json",
+        saveAs: { it.replace("07-parse_best_and_demultiplex_per_chunk/", "") }
 
     input:
     tuple val(chunkID), path(readFileFasta), path(levDistMat), path(expDesFile)

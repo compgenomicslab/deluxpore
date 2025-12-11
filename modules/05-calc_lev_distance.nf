@@ -4,7 +4,7 @@ process calcLevDistance {
 
     tag { "${params.projectName}.rCalcLevDistance.${chunkID}" }
 
-    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true'
+    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true', enabled: params.publishIntermediate
     
 
     input:

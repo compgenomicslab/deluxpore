@@ -5,8 +5,7 @@ process removeIlluminaIndexes {
 
     tag { "${params.projectName}.rRemoveIllIndexes.${chunkID}" }
 
-    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true'
-
+    publishDir "${params.outDir}/", mode: 'copy', overwrite: 'true', enabled: params.publishIntermediate
 
     input:
     tuple val(chunkID), path(readFileFasta), path(completeIndexSeqs)
