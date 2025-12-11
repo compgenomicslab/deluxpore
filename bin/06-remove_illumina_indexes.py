@@ -107,7 +107,8 @@ if __name__ == "__main__":
 
     nanopore_trimmed_reads = args.fasta_reads #fasta file with nanopore trimmed reads
     complete_index_reads = args.complete_index_reads #fasta file with complete illumina indexes for each read (all possible indexes based on the mappings)
-    chunkID = (os.path.splitext(os.path.basename(nanopore_trimmed_reads))[0]).split(".")[0]
+    # chunkID = (os.path.splitext(os.path.basename(nanopore_trimmed_reads))[0]).split(".")[0]
+    chunkID = os.path.basename(nanopore_trimmed_reads).replace(".nano_trimmed_filtered.fasta", "")
     
     # # load nanopore trimmed reads into dictionary
     # with open(nanopore_trimmed_reads, 'r') as reads_file:

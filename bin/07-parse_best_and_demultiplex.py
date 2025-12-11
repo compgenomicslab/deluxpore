@@ -125,7 +125,7 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
                         print(f"do not update, combination '{current_combo}' is valid and '{new_combo}' is not")
 
                     elif new_is_valid and current_is_valid:
-                        grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
+                        grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i5_qstart=float('inf'), i7='', i7_dist=float('inf'), i7_qstart=float('inf'))
                         print(read_name, " could be attributed to two different samples, reverting to empty record")
 
 
@@ -172,7 +172,7 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
                         print(f"do not update, combination '{current_combo}' is valid and '{new_combo}' is not")
 
                     elif new_is_valid and current_is_valid:
-                        grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i7='', i7_dist=float('inf'))
+                        grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i5_qstart=float('inf'), i7='', i7_dist=float('inf'), i7_qstart=float('inf'))
                         print(read_name, "could be attributed to two different samples, reverting to empty record")
 
             if should_update:
@@ -273,7 +273,8 @@ if __name__ == "__main__":
 
     distance_table = args.index_distance_table
     clean_reads_file = args.fasta_reads
-    chunkID = (os.path.splitext(os.path.basename(distance_table))[0]).split(".")[0]
+    # chunkID = (os.path.splitext(os.path.basename(distance_table))[0]).split(".")[0]
+    chunkID = os.path.basename(distance_table).replace(".distance_matrix.tsv", "")
 
     # with open(clean_reads_file, 'r') as reads_file:
     #     reads_dict = SeqIO.to_dict(SeqIO.parse(reads_file, 'fasta'))
