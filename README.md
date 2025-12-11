@@ -53,12 +53,12 @@ nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/del
 <a name="simple-usage"></a>
 ## Simple Usage
 Simple steps to run deluxpore:
-  1. Create `experimental_design.csv` file, where first row is the final desired sample ID, second row is the i5 Illumina index, and third row is the i7 Illumina index:
+  1. Create `experimental_design.tsv` file, where first row is the final desired sample ID, second row is the i5 Illumina index, and third row is the i7 Illumina index:
      
-     ```csv
-     sample1,i501,i701
-     sample2,i501,i702
-     sample3,i501,i703
+     ```tsv
+     sample1  i501  i701
+     sample2  i502  i702
+     sample3  i503  i703
      ```
    2. Copy the example params file and edit with your paths:
       ```bash
@@ -67,6 +67,13 @@ Simple steps to run deluxpore:
 3. Run:
    ```bash
    nextflow run ktlina/deluxpore -profile local,conda -params-file my_params.json
+   ```
+Code to run deluxpore on test dataset:
+   ```bash
+   git clone https://github.com/ktlina/deluxpore.git
+   cd deluxpore
+
+   nextflow run main.nf -profile local,conda -params-file test/test_params.json
    ```
 
 <a name="quick-usage"></a>
