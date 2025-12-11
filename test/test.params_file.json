@@ -1,9 +1,9 @@
 {
     "projectName": "test.data",
-    "readsDir": "/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split",
+    "readsDir": "./test/reads",
     "readsFileExtension": "*.fastq.gz",
-    "experimentalDesign": "/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.sample_design.tsv",
-    "outDir": "/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.results",
+    "experimentalDesign": "./test/test.sample_design.tsv",
+    "outDir": "./test/test.results",
 
     "trimandfilterNanopore": false,
 
