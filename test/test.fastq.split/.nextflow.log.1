@@ -1,0 +1,268 @@
+Dec-10 10:33:04.542 [main] DEBUG nextflow.cli.Launcher - $> nextflow run /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/main.nf -profile local,conda -params-file /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.params_file.json --conda_env /home/ktlina/miniforge3/envs/long_metag
+Dec-10 10:33:04.622 [main] DEBUG nextflow.cli.CmdRun - N E X T F L O W  ~  version 25.10.0
+Dec-10 10:33:04.651 [main] DEBUG nextflow.config.ConfigBuilder - Found config base: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/nextflow.config
+Dec-10 10:33:04.655 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/nextflow.config
+Dec-10 10:33:04.670 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `local,conda`
+Dec-10 10:33:05.020 [main] DEBUG nextflow.config.ConfigBuilder - Available config profiles: [slurm, conda, local]
+Dec-10 10:33:05.041 [main] DEBUG nextflow.plugin.PluginsFacade - Setting up plugin manager > mode=prod; embedded=false; plugins-dir=/home/ktlina/.nextflow/plugins; core-plugins: nf-amazon@3.4.1,nf-azure@1.20.2,nf-cloudcache@0.5.0,nf-codecommit@0.5.0,nf-console@1.3.0,nf-google@1.23.3,nf-k8s@1.2.2,nf-tower@1.17.1,nf-wave@1.16.1
+Dec-10 10:33:05.057 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Enabled plugins: []
+Dec-10 10:33:05.060 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Disabled plugins: []
+Dec-10 10:33:05.062 [main] INFO  org.pf4j.DefaultPluginManager - PF4J version 3.12.0 in 'deployment' mode
+Dec-10 10:33:05.069 [main] DEBUG nextflow.util.RetryConfig - Missing nextflow session - using default retry config
+Dec-10 10:33:05.135 [main] INFO  org.pf4j.AbstractPluginManager - No plugins
+Dec-10 10:33:05.136 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins default=[]
+Dec-10 10:33:05.137 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins resolved requirement=[]
+Dec-10 10:33:05.143 [main] DEBUG n.secret.LocalSecretsProvider - Secrets store: /home/ktlina/.nextflow/secrets/store.json
+Dec-10 10:33:05.145 [main] DEBUG nextflow.secret.SecretsLoader - Discovered secrets providers: [nextflow.secret.LocalSecretsProvider@32f96bba] - activable => nextflow.secret.LocalSecretsProvider@32f96bba
+Dec-10 10:33:05.150 [main] DEBUG nextflow.cli.CmdRun - Applied DSL=2 from script declaration
+Dec-10 10:33:05.161 [main] DEBUG nextflow.cli.CmdRun - Launching `/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/main.nf` [cheesy_celsius] DSL2 - revision: ba5375d552
+Dec-10 10:33:05.185 [main] DEBUG nextflow.Session - Session UUID: d448f00c-d098-4e85-ab04-1835d6c2d8c1
+Dec-10 10:33:05.185 [main] DEBUG nextflow.Session - Run name: cheesy_celsius
+Dec-10 10:33:05.185 [main] DEBUG nextflow.Session - Executor pool size: 24
+Dec-10 10:33:05.189 [main] DEBUG nextflow.file.FilePorter - File porter settings maxRetries=3; maxTransfers=50; pollTimeout=null
+Dec-10 10:33:05.192 [main] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'FileTransfer' minSize=10; maxSize=72; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Dec-10 10:33:05.201 [main] DEBUG nextflow.cli.CmdRun - 
+  Version: 25.10.0 build 10289
+  Created: 22-10-2025 16:26 UTC (18:26 CEST)
+  System: Linux 6.8.0-63-generic
+  Runtime: Groovy 4.0.28 on OpenJDK 64-Bit Server VM 21.0.2-internal-adhoc.conda.src
+  Encoding: UTF-8 (UTF-8)
+  Process: 1761156@ktlinas-pet [127.0.1.1]
+  CPUs: 24 - Mem: 62.5 GB (4.7 GB) - Swap: 2 GB (1.9 GB)
+Dec-10 10:33:05.234 [main] DEBUG nextflow.Session - Work-dir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work [fuseblk]
+Dec-10 10:33:05.256 [main] DEBUG nextflow.executor.ExecutorFactory - Extension executors providers=[]
+Dec-10 10:33:05.260 [main] DEBUG nextflow.Session - Observer factory (v2): LinObserverFactory
+Dec-10 10:33:05.261 [main] DEBUG nextflow.Session - Observer factory (v2): DefaultObserverFactory
+Dec-10 10:33:05.284 [main] DEBUG nextflow.cache.CacheFactory - Using Nextflow cache factory: nextflow.cache.DefaultCacheFactory
+Dec-10 10:33:05.289 [main] DEBUG nextflow.util.CustomThreadPool - Creating default thread pool > poolSize: 25; maxThreads: 1000
+Dec-10 10:33:05.447 [main] DEBUG nextflow.Session - Session start
+Dec-10 10:33:05.588 [main] DEBUG nextflow.script.ScriptRunner - > Launching execution
+Dec-10 10:33:05.593 [main] INFO  nextflow.Nextflow - ================================================
+       D E L U X P O R E  P I P E L I N E
+================================================
+Project Name   : test.data
+Reads Dir      : /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split
+Experimental Design: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.sample_design.tsv
+Output Dir     : /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.results
+Config Profile : local,conda
+Start Time     : 2025-12-10T10:33:05.271788866+01:00
+
+Dec-10 10:33:06.005 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withLabel:fast` matches labels `fast` for process with name generateIndexFiles
+Dec-10 10:33:06.009 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.010 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.014 [main] DEBUG nextflow.executor.Executor - [warm up] executor > local
+Dec-10 10:33:06.025 [main] DEBUG n.processor.LocalPollingMonitor - Creating local task monitor for executor 'local' > cpus=24; memory=16 GB; capacity=24; pollInterval=100ms; dumpInterval=5m
+Dec-10 10:33:06.028 [main] DEBUG n.processor.TaskPollingMonitor - >>> barrier register (monitor: local)
+Dec-10 10:33:06.044 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'generateIndexFiles': maxForks=0; fair=false; array=0
+Dec-10 10:33:06.071 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withLabel:fast` matches labels `fast` for process with name transFastqtoFasta
+Dec-10 10:33:06.074 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.074 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.074 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'transFastqtoFasta': maxForks=0; fair=false; array=0
+Dec-10 10:33:06.077 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withLabel:fast` matches labels `fast` for process with name createDB
+Dec-10 10:33:06.077 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.077 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.078 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'createDB': maxForks=0; fair=false; array=0
+Dec-10 10:33:06.087 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withName:mapReads2DB` matches process mapReads2DB
+Dec-10 10:33:06.088 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.088 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.089 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'mapReads2DB': maxForks=2; fair=false; array=0
+Dec-10 10:33:06.095 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withLabel:medium` matches labels `medium` for process with name parseBlastOut
+Dec-10 10:33:06.096 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.096 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.096 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'parseBlastOut': maxForks=0; fair=false; array=0
+Dec-10 10:33:06.100 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withLabel:fast` matches labels `fast` for process with name extractUniqQueryIndex
+Dec-10 10:33:06.101 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.101 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.101 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'extractUniqQueryIndex': maxForks=0; fair=false; array=0
+Dec-10 10:33:06.105 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withName:calcLevDistance` matches process calcLevDistance
+Dec-10 10:33:06.105 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.105 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.106 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'calcLevDistance': maxForks=2; fair=false; array=0
+Dec-10 10:33:06.109 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withName:parseBestDemulti` matches process parseBestDemulti
+Dec-10 10:33:06.110 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.110 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.111 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'parseBestDemulti': maxForks=4; fair=false; array=0
+Dec-10 10:33:06.122 [main] DEBUG n.script.dsl.ProcessConfigBuilder - Config settings `withLabel:fast` matches labels `fast` for process with name concatenateSamples
+Dec-10 10:33:06.124 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: local
+Dec-10 10:33:06.124 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Dec-10 10:33:06.125 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'concatenateSamples': maxForks=0; fair=false; array=0
+Dec-10 10:33:06.127 [main] DEBUG nextflow.Session - Workflow process names [dsl2]: removeNanoporeIndexes, filterNanoporeReads, transFastqtoFasta, generateIndexFiles, mapReads2DB, parseBestDemulti, extractUniqQueryIndex, createDB, concatenateSamples, removeIlluminaIndexes, parseBlastOut, calcLevDistance
+Dec-10 10:33:06.128 [main] DEBUG nextflow.Session - Igniting dataflow network (11)
+Dec-10 10:33:06.131 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > generateIndexFiles
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > transFastqtoFasta
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > createDB
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > mapReads2DB
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > parseBlastOut
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > extractUniqQueryIndex
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > calcLevDistance
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > parseBestDemulti
+Dec-10 10:33:06.132 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > concatenateSamples
+Dec-10 10:33:06.133 [PathVisitor-2] DEBUG nextflow.file.PathVisitor - files for syntax: glob; folder: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/; pattern: *.fastq.gz; options: [type:file]
+Dec-10 10:33:06.133 [main] DEBUG nextflow.script.ScriptRunner - Parsed script files:
+  Script_79e4eeff017ba666: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/04-extract_uniq_query_index.nf
+  Script_83293b65b63ac439: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/06-remove_illumina_indexes.nf
+  Script_8fdfe54a1d737882: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/00-generate_index_files.nf
+  Script_0e2ac4831c42e149: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/03-parse_blast_output.nf
+  Script_9a9f135832cd19fc: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/01-transform_to_fasta.nf
+  Script_1c35dfec1dcf7d7f: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/05-calc_lev_distance.nf
+  Script_9e86f0508e8ac307: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/02-reads2database.nf
+  Script_7630c11853335562: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/00-trim_and_filter.nf
+  Script_e48f8b868cecf8ca: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/main.nf
+  Script_562510c4f1c50cb7: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/08-concat_sample_fna_files.nf
+  Script_f1da36dd98c91c14: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/modules/07-parse_best_and_demultiplex.nf
+Dec-10 10:33:06.133 [main] DEBUG nextflow.script.ScriptRunner - > Awaiting termination 
+Dec-10 10:33:06.133 [main] DEBUG nextflow.Session - Session await
+Dec-10 10:33:06.173 [Actor Thread 7] DEBUG nextflow.conda.CondaCache - mamba found local env for environment=/home/ktlina/miniforge3/envs/long_metag; path=/home/ktlina/miniforge3/envs/long_metag
+Dec-10 10:33:06.239 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Dec-10 10:33:06.241 [Task submitter] INFO  nextflow.Session - [8e/eff833] Submitted process > transFastqtoFasta (test.data.rTransToFasta.test.part_006)
+Dec-10 10:33:06.293 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Dec-10 10:33:06.293 [Task submitter] INFO  nextflow.Session - [ff/4751fb] Submitted process > transFastqtoFasta (test.data.rTransToFasta.test.part_005)
+Dec-10 10:33:06.328 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Dec-10 10:33:06.329 [Task submitter] INFO  nextflow.Session - [5f/d47368] Submitted process > transFastqtoFasta (test.data.rTransToFasta.test.part_016)
+Dec-10 10:33:06.366 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Dec-10 10:33:06.366 [Task submitter] INFO  nextflow.Session - [16/a4189b] Submitted process > transFastqtoFasta (test.data.rTransToFasta.test.part_002)
+Dec-10 10:33:06.935 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 4; name: transFastqtoFasta (test.data.rTransToFasta.test.part_006); status: COMPLETED; exit: 1; error: -; workDir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/8e/eff8338e64a01f863b4d5fd20c7d33]
+Dec-10 10:33:06.936 [Task monitor] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'TaskFinalizer' minSize=10; maxSize=72; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Dec-10 10:33:06.943 [TaskFinalizer-1] DEBUG nextflow.processor.TaskProcessor - Handling unexpected condition for
+  task: name=transFastqtoFasta (test.data.rTransToFasta.test.part_006); work-dir=/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/8e/eff8338e64a01f863b4d5fd20c7d33
+  error [nextflow.exception.ProcessFailedException]: Process `transFastqtoFasta (test.data.rTransToFasta.test.part_006)` terminated with an error exit status (1)
+Dec-10 10:33:06.951 [TaskFinalizer-1] DEBUG nextflow.processor.TaskRun - Unable to dump output of process 'transFastqtoFasta (test.data.rTransToFasta.test.part_006)' -- Cause: java.nio.file.NoSuchFileException: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/8e/eff8338e64a01f863b4d5fd20c7d33/.command.out
+Dec-10 10:33:06.952 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 6; name: transFastqtoFasta (test.data.rTransToFasta.test.part_005); status: COMPLETED; exit: 1; error: -; workDir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/ff/4751fb69e8dc453aa0471fa5c1fca7]
+Dec-10 10:33:06.954 [TaskFinalizer-1] ERROR nextflow.processor.TaskProcessor - Error executing process > 'transFastqtoFasta (test.data.rTransToFasta.test.part_006)'
+
+Caused by:
+  Process `transFastqtoFasta (test.data.rTransToFasta.test.part_006)` terminated with an error exit status (1)
+
+
+Command executed:
+
+  mkdir -p "01-fastq2fasta"
+  if file "test.part_006.fastq.gz" | grep -q "compressed"; then
+      zcat test.part_006.fastq.gz | seqtk seq -a - > "test.part_006.nano_trimmed_filtered.fasta"
+  else
+      cat test.part_006.fastq.gz | seqtk seq -a - > "test.part_006.nano_trimmed_filtered.fasta"
+  fi
+
+Command exit status:
+  1
+
+Command output:
+  (empty)
+
+Command error:
+  WARNING conda.exceptions:print_unexpected_error_report(949): KeyError('pkgs_dirs',)
+  Traceback (most recent call last):
+    File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/cli/main.py", line 98, in main
+      return activator_main()
+    File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 630, in main
+      activator = Activator(shell, activator_args)
+    File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 136, in __init__
+      raise NotImplementedError()
+  NotImplementedError
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/exceptions.py", line 947, in print_unexpected_error_report
+      message_builder.append(get_main_info_str(error_report['conda_info']))
+    File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/cli/main_info.py", line 243, in get_main_info_str
+      info_dict['_' + key] = ('\n' + 26 * ' ').join(info_dict[key])
+  KeyError: 'pkgs_dirs'
+  
+  # >>>>>>>>>>>>>>>>>>>>>> ERROR REPORT <<<<<<<<<<<<<<<<<<<<<<
+  
+      Traceback (most recent call last):
+        File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/cli/main.py", line 98, in main
+          return activator_main()
+        File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 630, in main
+          activator = Activator(shell, activator_args)
+        File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 136, in __init__
+          raise NotImplementedError()
+      NotImplementedError
+  
+  `$ /home/ktlina/miniforge3/envs/nf-env/bin/conda shell.bash hook`
+  
+    environment variables:
+  conda info could not be constructed.
+  KeyError('pkgs_dirs',)
+  
+  An unexpected error has occurred. Conda has prepared the above report.
+  .command.run: line 138: /bin/activate: No such file or directory
+
+Work dir:
+  /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/8e/eff8338e64a01f863b4d5fd20c7d33
+
+Tip: when you have fixed the problem you can continue the execution adding the option `-resume` to the run command line
+Dec-10 10:33:06.956 [TaskFinalizer-2] DEBUG nextflow.processor.TaskProcessor - Handling unexpected condition for
+  task: name=transFastqtoFasta (test.data.rTransToFasta.test.part_005); work-dir=/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/ff/4751fb69e8dc453aa0471fa5c1fca7
+  error [nextflow.exception.ProcessFailedException]: Process `transFastqtoFasta (test.data.rTransToFasta.test.part_005)` terminated with an error exit status (1)
+Dec-10 10:33:06.957 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Dec-10 10:33:06.957 [Task submitter] INFO  nextflow.Session - [a1/36f3c7] Submitted process > transFastqtoFasta (test.data.rTransToFasta.test.part_001)
+Dec-10 10:33:06.962 [TaskFinalizer-1] INFO  nextflow.Session - Execution cancelled -- Finishing pending tasks before exit
+Dec-10 10:33:06.969 [TaskFinalizer-1] INFO  nextflow.script.BaseScript - Oops... Pipeline execution stopped with the following message: WARNING conda.exceptions:print_unexpected_error_report(949): KeyError('pkgs_dirs',)
+Traceback (most recent call last):
+  File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/cli/main.py", line 98, in main
+    return activator_main()
+  File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 630, in main
+    activator = Activator(shell, activator_args)
+  File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 136, in __init__
+    raise NotImplementedError()
+NotImplementedError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/exceptions.py", line 947, in print_unexpected_error_report
+    message_builder.append(get_main_info_str(error_report['conda_info']))
+  File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/cli/main_info.py", line 243, in get_main_info_str
+    info_dict['_' + key] = ('\n' + 26 * ' ').join(info_dict[key])
+KeyError: 'pkgs_dirs'
+
+# >>>>>>>>>>>>>>>>>>>>>> ERROR REPORT <<<<<<<<<<<<<<<<<<<<<<
+
+    Traceback (most recent call last):
+      File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/cli/main.py", line 98, in main
+        return activator_main()
+      File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 630, in main
+        activator = Activator(shell, activator_args)
+      File "/home/ktlina/miniforge3/envs/nf-env/lib/python3.6/site-packages/conda/activate.py", line 136, in __init__
+        raise NotImplementedError()
+    NotImplementedError
+
+`$ /home/ktlina/miniforge3/envs/nf-env/bin/conda shell.bash hook`
+
+  environment variables:
+conda info could not be constructed.
+KeyError('pkgs_dirs',)
+
+An unexpected error has occurred. Conda has prepared the above report.
+.command.run: line 138: /bin/activate: No such file or directory
+Dec-10 10:33:06.970 [main] DEBUG nextflow.Session - Session await > all processes finished
+Dec-10 10:33:06.975 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Dec-10 10:33:06.976 [Task submitter] INFO  nextflow.Session - [23/5b7b4b] Submitted process > transFastqtoFasta (test.data.rTransToFasta.test.part_014)
+Dec-10 10:33:07.002 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 3; name: transFastqtoFasta (test.data.rTransToFasta.test.part_016); status: COMPLETED; exit: 1; error: -; workDir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/5f/d47368ae9b9e61aa195409a7fd8aea]
+Dec-10 10:33:07.006 [TaskFinalizer-3] DEBUG nextflow.processor.TaskProcessor - Handling unexpected condition for
+  task: name=transFastqtoFasta (test.data.rTransToFasta.test.part_016); work-dir=/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/5f/d47368ae9b9e61aa195409a7fd8aea
+  error [nextflow.exception.ProcessFailedException]: Process `transFastqtoFasta (test.data.rTransToFasta.test.part_016)` terminated with an error exit status (1)
+Dec-10 10:33:07.019 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 8; name: transFastqtoFasta (test.data.rTransToFasta.test.part_002); status: COMPLETED; exit: 1; error: -; workDir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/16/a4189be609640f94addc8e9fa3ee2c]
+Dec-10 10:33:07.022 [TaskFinalizer-4] DEBUG nextflow.processor.TaskProcessor - Handling unexpected condition for
+  task: name=transFastqtoFasta (test.data.rTransToFasta.test.part_002); work-dir=/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/16/a4189be609640f94addc8e9fa3ee2c
+  error [nextflow.exception.ProcessFailedException]: Process `transFastqtoFasta (test.data.rTransToFasta.test.part_002)` terminated with an error exit status (1)
+Dec-10 10:33:07.579 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 5; name: transFastqtoFasta (test.data.rTransToFasta.test.part_001); status: COMPLETED; exit: 1; error: -; workDir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/a1/36f3c7d9bed450279abbb68210474d]
+Dec-10 10:33:07.583 [TaskFinalizer-5] DEBUG nextflow.processor.TaskProcessor - Handling unexpected condition for
+  task: name=transFastqtoFasta (test.data.rTransToFasta.test.part_001); work-dir=/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/a1/36f3c7d9bed450279abbb68210474d
+  error [nextflow.exception.ProcessFailedException]: Process `transFastqtoFasta (test.data.rTransToFasta.test.part_001)` terminated with an error exit status (1)
+Dec-10 10:33:07.608 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 7; name: transFastqtoFasta (test.data.rTransToFasta.test.part_014); status: COMPLETED; exit: 1; error: -; workDir: /home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/23/5b7b4be6b3fa958b6856a7cb26826d]
+Dec-10 10:33:07.609 [Task monitor] DEBUG n.processor.TaskPollingMonitor - <<< barrier arrives (monitor: local) - terminating tasks monitor poll loop
+Dec-10 10:33:07.609 [main] DEBUG nextflow.Session - Session await > all barriers passed
+Dec-10 10:33:07.612 [TaskFinalizer-6] DEBUG nextflow.processor.TaskProcessor - Handling unexpected condition for
+  task: name=transFastqtoFasta (test.data.rTransToFasta.test.part_014); work-dir=/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/test/test.fastq.split/work/23/5b7b4be6b3fa958b6856a7cb26826d
+  error [nextflow.exception.ProcessFailedException]: Process `transFastqtoFasta (test.data.rTransToFasta.test.part_014)` terminated with an error exit status (1)
+Dec-10 10:33:07.614 [main] DEBUG nextflow.util.ThreadPoolManager - Thread pool 'TaskFinalizer' shutdown completed (hard=false)
+Dec-10 10:33:07.615 [main] INFO  nextflow.script.BaseScript - Pipeline completed at: 2025-12-10T10:33:07.614316455+01:00
+Dec-10 10:33:07.616 [main] INFO  nextflow.script.BaseScript - Time to complete workflow execution: 2.3s
+Dec-10 10:33:07.617 [main] INFO  nextflow.script.BaseScript - Execution status: Failed
+Dec-10 10:33:07.620 [main] DEBUG n.trace.WorkflowStatsObserver - Workflow completed > WorkflowStats[succeededCount=0; failedCount=6; ignoredCount=0; cachedCount=0; pendingCount=11; submittedCount=0; runningCount=0; retriesCount=0; abortedCount=0; succeedDuration=0ms; failedDuration=7.2s; cachedDuration=0ms;loadCpus=0; loadMemory=0; peakRunning=4; peakCpus=8; peakMemory=16 GB; ]
+Dec-10 10:33:07.780 [main] DEBUG nextflow.cache.CacheDB - Closing CacheDB done
+Dec-10 10:33:07.802 [main] DEBUG nextflow.util.ThreadPoolManager - Thread pool 'FileTransfer' shutdown completed (hard=false)
+Dec-10 10:33:07.802 [main] DEBUG nextflow.script.ScriptRunner - > Execution complete -- Goodbye
