@@ -60,6 +60,7 @@ Simple steps to run deluxpore:
      sample2  i502  i702
      sample3  i503  i703
      ```
+     
      > [!NOTE]
      > Note on sample names: Although all characters are allowed in sample names, it is encouraged to avoid special characters particularly ".", to prevent processing issues.
      
