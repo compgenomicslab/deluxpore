@@ -62,7 +62,7 @@ Simple steps to run deluxpore:
      ```
      
 > [!NOTE]
-> Although all characters are allowed in sample names, it is encouraged to avoid special characters particularly ".", to prevent processing issues.
+> Although all characters are allowed in sample names, it is encouraged to avoid special characters, particularly ".", to prevent processing issues. Use them exclusively to determine file extensions.
      
    2. Copy the example params file and edit with your paths:
       ```bash
