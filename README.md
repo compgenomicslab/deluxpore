@@ -81,47 +81,51 @@ Code to run deluxpore on test dataset:
 ```angular2html
 nextflow run -latest ktlina/deluxpore/main.nf --help
 
-=========================================
- D E L U X P O R E   P I P E L I N E
-=========================================
+    =========================================
+     D E L U X P O R E   P I P E L I N E
+    =========================================
+    
+    Usage:
+      nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
+    
+    Required parameters:
+      --projectName          Name for your project
+      --readsDir             Path to directory containing Nanopore reads
+      --readsFileExtension   Glob pattern to match input read files (e.g., *.fastq.gz, *.fq.gz, *.fastq, *.fq)
+                             Each matched file is processed as a separate chunk in parallel.
+                             Examples:
+                                "*.fastq.gz"     - Process all gzipped fastq files as separate chunks
+                                "sample1.fq.gz"  - Process a single file
+                                "batch_*.fq"     - Process all files matching the pattern
+      --experimentalDesign   Path to sample-to-index mapping file (TSV)
+      --outDir               Output directory
+      --libraryIndexSeqs     Illumina index kit used for multiplexing
+                             Accepted values: NEBNext, NEXTERA
 
-Usage:
-  nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
+    Optional parameters:
+      --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
+      --nanoQscore             Minimum quality score [default: 20]
+      --nanoLength             Minimum read length [default: 100]
+      --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
 
-Required parameters:
-  --projectName          Name for your project
-  --readsDir             Path to directory containing Nanopore reads
-  --readsFileExtension   Glob pattern to match input read files (e.g., *.fastq.gz, *.fq.gz, *.fastq, *.fq)
-                         Each matched file is processed as a separate chunk in parallel.
-                         Examples:
-                           "*.fastq.gz"     - Process all gzipped fastq files as separate chunks
-                           "sample1.fq.gz"  - Process a single file
-                           "batch_*.fq"     - Process all files matching the pattern
-  --experimentalDesign   Path to sample-to-index mapping file (TSV)
-  --outDir               Output directory
-  --libraryIndexSeqs     Illumina index kit used for multiplexing
-                         Accepted values: NEBNext, NEXTERA
+    Resource limits:
+      --max_cpus             Maximum CPUs to use [default: auto-detected]
+      --max_memory           Maximum memory to use [default: 16 GB]
 
-Optional parameters:
-  --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
-  --nanoQscore             Minimum quality score [default: 20]
-  --nanoLength             Minimum read length [default: 100]
-  --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
+    Other:
+      --conda_env            Path to pre-built conda environment [default: null]
+      --publishIntermediate  Publish intermediate files [default: false]
+      
+      --version              Show pipeline version    
+      --help                 Show this help message
 
-Resource limits:
-  --max_cpus             Maximum CPUs to use [default: auto-detected]
-  --max_memory           Maximum memory to use [default: 16 GB]
+    Examples:
+      # Using NEBNext indexes
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nebnext -params-file params.json
 
-Other:
-  --conda_env            Path to pre-built conda environment [default: null]
-  --help                 Show this help message
+      # Using Nextera indexes
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
 
-Examples:
-  # Using NEBNext indexes
-  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nebnext -params-file params.json
-
-  # Using Nextera indexes
-  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
 ```
 
 <a name="acknowledgements"></a>
