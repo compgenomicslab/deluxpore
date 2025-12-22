@@ -61,8 +61,8 @@ Simple steps to run deluxpore:
      sample3  i503  i703
      ```
      
-     > [!NOTE]
-     > Although all characters are allowed in sample names, it is encouraged to avoid special characters particularly ".", to prevent processing issues.
+> [!NOTE]
+> Although all characters are allowed in sample names, it is encouraged to avoid special characters particularly ".", to prevent processing issues.
      
    2. Copy the example params file and edit with your paths:
       ```bash
