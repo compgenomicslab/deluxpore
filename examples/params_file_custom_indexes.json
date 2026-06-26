@@ -11,7 +11,9 @@
 
     "trimmIlluminaIndexes": false,
 
-    "libraryIndexSeqs": "NEBNext",
+    "libraryIndexSeqs": "custom",
+    "customCompleteIndexes": "/path/to/your/complete_indexes.fna",
+    "customUniqueIndexes": "/path/to/your/unique_indexes.fna",
 
     "publishIntermediate": true
 }
