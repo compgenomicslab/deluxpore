@@ -8,7 +8,7 @@ process generateIndexFiles {
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false', enabled: params.publishIntermediate
 
     input:
-    file (experimentalDesignInput)
+    tuple path(experimentalDesignInput), path(completeIndexes), path(uniqueIndexes)
 
     output:
     path ("indexes/*")
@@ -19,7 +19,8 @@ process generateIndexFiles {
     mkdir -p "indexes"
     00-generate_index_files.py \
     -i ${experimentalDesignInput} \
-    -ik ${params.libraryIndexSeqs} \
+    -ci ${completeIndexes} \
+    -ui ${uniqueIndexes} \
     -o "indexes"
     """
 }
