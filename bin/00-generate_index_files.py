@@ -24,9 +24,12 @@ def check_arg(args=None):
     parser.add_argument('--input', '-i', required=True,
                         help='Path to experimental design file in tsv format')
 
-    parser.add_argument('--indexKit', '-ik', required=True,
-                        help='index sequences kit name used in library construction')
-    
+    parser.add_argument('--completeIndexes', '-ci', required=True,
+                        help='Path to complete index sequences FASTA file (adapter + barcode)')
+
+    parser.add_argument('--uniqueIndexes', '-ui', required=True,
+                        help='Path to unique barcode-only index sequences FASTA file')
+
     parser.add_argument('--output', '-o', required=True,
                         help='Output directory to write the results')
 
@@ -38,12 +41,11 @@ def check_arg(args=None):
 
 element = namedtuple('seq_id', ['i5', 'i7'])
 
-def read_index_seqs_into_dict(indexkit):
-    with open(f"/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/assets/{indexkit}.complete_indexes.fna", "r") as complete_indexes:
-        with open(f"/home/acatalina/PHD/long_nanopore/run_nextflow_demultiplex/nextflow_demultiplex/assets/{indexkit}.unique_indexes.fna", "r") as unique_indexes:
+def read_index_seqs_into_dict(complete_path, unique_path):
+    with open(complete_path, "r") as complete_indexes:
+        with open(unique_path, "r") as unique_indexes:
             complete_dict = SeqIO.to_dict(SeqIO.parse(complete_indexes, "fasta"))
             unique_dict = SeqIO.to_dict(SeqIO.parse(unique_indexes, "fasta"))
-
     return complete_dict, unique_dict
 
 def read_experimental_design(input_file):
@@ -123,8 +125,8 @@ def write_index_files(i5_indexes, i7_indexes, complete_dict, unique_dict, output
 if __name__ == '__main__':
     args = check_arg()
 
-    #Parse index seq files and store info into ditionary
-    complete_dict, unique_dict = read_index_seqs_into_dict(args.indexKit)
+    #Parse index seq files and store info into dictionary
+    complete_dict, unique_dict = read_index_seqs_into_dict(args.completeIndexes, args.uniqueIndexes)
 
     my_i5_indexes, my_i7_indexes = read_experimental_design(args.input)
     # print(my_seq_indexes)
