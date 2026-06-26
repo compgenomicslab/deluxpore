@@ -3,8 +3,8 @@ process parseBestDemulti {
 
     tag { "${params.projectName}.rparseBestDemulti.${chunkID}" }
 
-    publishDir "${params.outDir}/demultiplex_assignments.per_chunk", 
-        mode: 'copy', overwrite: 'true', 
+    publishDir "${params.outDir}/demultiplex_assignments.per_chunk",
+        mode: 'copy', overwrite: 'true',
         pattern:"07-parse_best_and_demultiplex_per_chunk/*.json",
         saveAs: { it.replace("07-parse_best_and_demultiplex_per_chunk/", "") }
 
@@ -12,13 +12,14 @@ process parseBestDemulti {
     tuple val(chunkID), path(readFileFasta), path(levDistMat), path(expDesFile)
 
     output:
-    tuple val(chunkID), path ("07-parse_best_and_demultiplex_per_chunk/*.fna"), path ("07-parse_best_and_demultiplex_per_chunk/*.json")
+    tuple val(chunkID), path ("07-parse_best_and_demultiplex_per_chunk/*.fna"), path ("07-parse_best_and_demultiplex_per_chunk/*.json"), path ("07-parse_best_and_demultiplex_per_chunk/*.tsv"), path ("07-parse_best_and_demultiplex_per_chunk/ambiguous/*.fna")
 
     script:
     """
 
     mkdir -p "07-parse_best_and_demultiplex_per_chunk"
-    
+    mkdir -p "07-parse_best_and_demultiplex_per_chunk/ambiguous"
+
     07-parse_best_and_demultiplex.py \
     -i  ${readFileFasta} \
     -id ${levDistMat} \

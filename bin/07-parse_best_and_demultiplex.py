@@ -76,7 +76,7 @@ def create_best_distance_dict(distance_file):
         return best
 
 
-def parse_best_dictionary_should_update(best_dict, exp_des_dict):
+def parse_best_dictionary_should_update(best_dict, exp_des_dict, ambiguous_events):
     GroupData = namedtuple('GroupData', ['i5', 'i5_dist', 'i5_qstart', 'i7', 'i7_dist', 'i7_qstart'])
     grouped_data = {}
     for key, (min_value, index_name) in best_dict.items():
@@ -127,6 +127,13 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
                     elif new_is_valid and current_is_valid:
                         grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i5_qstart=float('inf'), i7='', i7_dist=float('inf'), i7_qstart=float('inf'))
                         print(read_name, " could be attributed to two different samples, reverting to empty record")
+                        current_sample = next((s for s, idxs in exp_des_dict.items() if idxs == current_combo), "unknown")
+                        new_sample = next((s for s, idxs in exp_des_dict.items() if idxs == new_combo), "unknown")
+                        ambiguous_events.append((
+                            read_name, "tie_both_valid",
+                            f"i5={current.i5}+i7={current.i7} OR i5={index_name}+i7={current.i7}",
+                            f"{current_sample}|{new_sample}"
+                        ))
 
 
             if should_update:
@@ -174,6 +181,13 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict):
                     elif new_is_valid and current_is_valid:
                         grouped_data[read_name] = GroupData(i5='', i5_dist=float('inf'), i5_qstart=float('inf'), i7='', i7_dist=float('inf'), i7_qstart=float('inf'))
                         print(read_name, "could be attributed to two different samples, reverting to empty record")
+                        current_sample = next((s for s, idxs in exp_des_dict.items() if idxs == current_combo), "unknown")
+                        new_sample = next((s for s, idxs in exp_des_dict.items() if idxs == new_combo), "unknown")
+                        ambiguous_events.append((
+                            read_name, "tie_both_valid",
+                            f"i5={current.i5}+i7={current.i7} OR i5={current.i5}+i7={index_name}",
+                            f"{current_sample}|{new_sample}"
+                        ))
 
             if should_update:
                 grouped_data[read_name] = GroupData(
@@ -204,7 +218,7 @@ def write_info_into_file(grouped_data, chunkID, output_path):
     with open(f'{output_path}/grouped_data.{chunkID}.json', 'w') as f:
         json.dump(serializable_grouped_data, f, indent=4)
 
-def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, output_path):
+def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, output_path, ambiguous_events):
 
     i5_to_sample = {}
     i7_to_sample = {}
@@ -242,16 +256,24 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                 if len(i5_to_sample[i5]) == 1: #only one sample linked to the index
                     assigned_sample = i5_to_sample[i5][0]
                 else:
-                    #i5 appears in more that one sample, therefore inconclusive
-                    pass
+                    #i5 appears in more than one sample, therefore inconclusive
+                    ambiguous_events.append((
+                        read, "single_barcode_multi_sample",
+                        f"i5={i5} (no i7 found)",
+                        "|".join(i5_to_sample[i5])
+                    ))
 
             #Case 3: only i7 present
             elif i5 == "" and i7 != "":
                 if len(i7_to_sample[i7]) == 1: #only one sample linked to the index
                     assigned_sample = i7_to_sample[i7][0]
                 else:
-                    #i7 appears in more that one sample, therefore inconclusive
-                    pass
+                    #i7 appears in more than one sample, therefore inconclusive
+                    ambiguous_events.append((
+                        read, "single_barcode_multi_sample",
+                        f"i7={i7} (no i5 found)",
+                        "|".join(i7_to_sample[i7])
+                    ))
             
             if assigned_sample:
                 new_seq = SeqRecord(
@@ -268,6 +290,33 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
 
 
 
+def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
+    ambiguous_dir = f'{output_path}/ambiguous'
+    os.makedirs(ambiguous_dir, exist_ok=True)
+
+    handlers = {
+        'tie_both_valid':              open(f'{ambiguous_dir}/tie_both_valid.{chunkID}.fna', 'w'),
+        'single_barcode_multi_sample': open(f'{ambiguous_dir}/single_barcode_multi_sample.{chunkID}.fna', 'w'),
+    }
+    try:
+        for read_id, ambiguity_type, _, _ in ambiguous_events:
+            if ambiguity_type in handlers and read_id in reads:
+                new_seq = SeqRecord(reads[read_id].seq, id=reads[read_id].id, description="")
+                SeqIO.write(new_seq, handlers[ambiguity_type], 'fasta')
+    finally:
+        for fh in handlers.values():
+            fh.close()
+
+
+def write_ambiguous_report(ambiguous_events, chunkID, output_path):
+    report_path = f'{output_path}/ambiguous_reads.{chunkID}.tsv'
+    with open(report_path, 'w') as f:
+        f.write("read_id\tambiguity_type\tbarcode_info\tpossible_samples\n")
+        for event in ambiguous_events:
+            f.write("\t".join(str(x) for x in event) + "\n")
+    print(f"Ambiguous reads report written to: {report_path} ({len(ambiguous_events)} events)")
+
+
 if __name__ == "__main__":
     args = check_arg()
 
@@ -282,9 +331,12 @@ if __name__ == "__main__":
 
     exp_des_dict = parse_exp_design(args.experimental_design)
     best_dict = create_best_distance_dict(distance_table)
-    mapped_data = parse_best_dictionary_should_update(best_dict, exp_des_dict)
+    ambiguous_events = []
+    mapped_data = parse_best_dictionary_should_update(best_dict, exp_des_dict, ambiguous_events)
     count_inconclusive(mapped_data)
     write_info_into_file(mapped_data, chunkID, args.output)
 
-    write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output)
+    write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events)
+    write_ambiguous_fasta_files(ambiguous_events, reads_dict, chunkID, args.output)
+    write_ambiguous_report(ambiguous_events, chunkID, args.output)
 
