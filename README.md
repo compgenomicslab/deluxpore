@@ -50,7 +50,7 @@ nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/del
 | `conda` | Enable conda environment management |
 
 > [!NOTE]
-> SLURM queue names defined in the configuration files (e.g., 'fast', 'medium') are specific to our institutional HPC system. Users should modify these values in the SLURM configuration to match their local cluster queue names.
+> SLURM queue names defined in the configuration files (e.g., 'compute', 'bigmem') are specific to our institutional HPC system. Users should modify these values in the SLURM configuration to match their local cluster queue names.
 
 <a name="simple-usage"></a>
 ## Simple Usage
