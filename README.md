@@ -10,6 +10,8 @@
 * [Installation and Dependencies](#install)
 * [Simple Usage](#simple-usage)
 * [Full Usage](#full-usage)
+* [Custom Index Sequences](#custom-indexes)
+* [Ambiguous Read Assignments](#ambiguous-reads)
 * [Acknowledgements](#acknowledgements)
 
 <a name="install"></a>
@@ -100,7 +102,10 @@ Required parameters:
   --experimentalDesign   Path to sample-to-index mapping file (TSV)
   --outDir               Output directory
   --libraryIndexSeqs     Illumina index kit used for multiplexing
-                         Accepted values: NEBNext, NEXTERA
+                         Accepted values: NEBNext, NEXTERA, custom
+                         When set to 'custom', also provide:
+                           --customCompleteIndexes  Path to complete index sequences FASTA (adapter + barcode). (See assets folder for reference formatting). 
+                           --customUniqueIndexes    Path to unique barcode-only index sequences FASTA
 
 Optional parameters:
   --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
@@ -118,11 +123,58 @@ Other:
 
 Examples:
   # Using NEBNext indexes
-  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nebnext -params-file params.json
+  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs NEBNext -params-file params.json
 
   # Using Nextera indexes
-  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
+  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs NEXTERA -params-file params.json
+
+  # Using custom index sequences
+  nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs custom \
+    --customCompleteIndexes /path/to/complete_indexes.fna \
+    --customUniqueIndexes /path/to/unique_indexes.fna \
+    -params-file params.json
 ```
+
+<a name="custom-indexes"></a>
+## Custom Index Sequences
+
+If you used an index kit other than NEBNext or NEXTERA, you can provide your own index sequence files by setting `libraryIndexSeqs` to `custom` and supplying two FASTA files:
+
+| Parameter | Description |
+|-----------|-------------|
+| `customCompleteIndexes` | FASTA file containing the **complete** index sequences, i.e. the full adapter + barcode sequence used to build the BLAST mapping database |
+| `customUniqueIndexes` | FASTA file containing the **unique barcode-only** sequences (8 bp UDI barcodes) used for Levenshtein distance matching |
+
+The sequence IDs in these files must match the index names used in the `experimentalDesign` TSV (e.g. `i501`, `i701`). Reverse complement sequences are computed automatically from `customUniqueIndexes` — you do not need to provide them separately.
+
+> [!NOTE]
+> Built-in kits (NEBNext, NEXTERA) include pre-built `*_rc.fna` files in `assets/`, but these are not read by the pipeline — reverse complements are always derived on the fly from the unique index sequences. The same applies to custom kits.
+
+Example params file for custom indexes: `examples/params_file_custom_indexes.json`
+
+<a name="ambiguous-reads"></a>
+## Ambiguous Read Assignments
+
+During demultiplexing, some reads cannot be unambiguously assigned to a sample. This can happen when:
+
+- **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. The read is excluded from all sample files to avoid misassignment.
+- **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design.
+
+After each run, deluxpore writes a per-chunk report to:
+```
+{outDir}/ambiguous_reads_report/ambiguous_reads.{chunkID}.tsv
+```
+
+The TSV has four columns:
+
+| Column | Description |
+|--------|-------------|
+| `read_id` | Nanopore read identifier |
+| `ambiguity_type` | `tie_both_valid` or `single_barcode_multi_sample` |
+| `barcode_info` | The barcode combination(s) involved |
+| `possible_samples` | Pipe-separated list of sample names the read could belong to |
+
+Use this report to identify which samples are affected by barcode collisions and verify whether the ambiguous reads are consistent with your plate layout.
 
 <a name="acknowledgements"></a>
 ## Acknowledgements
