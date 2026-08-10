@@ -81,7 +81,7 @@ Code to run deluxpore on test dataset:
 <a name="quick-usage"></a>
 ## Full Usage
 ```angular2html
-nextflow run -latest ktlina/deluxpore/main.nf --help
+nextflow run -latest ./deluxpore/main.nf --help
 
 =========================================
  D E L U X P O R E   P I P E L I N E
