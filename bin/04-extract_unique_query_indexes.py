@@ -35,9 +35,15 @@ def check_arg(args=None):
     parser.add_argument('--reads', '-r', required=True,
                         help='Path to complete query sequences in FASTA format')
 
+    parser.add_argument('--complete_indexes_fna', '-ic', required=True,
+                        help='Path to project complete index sequences (adapter + barcode) '
+                             'in FASTA format (used, together with --unique_indexes_fna, to '
+                             'locate the barcode position within the adapter)')
+
     parser.add_argument('--unique_indexes_fna', '-iu', required=True,
                         help='Path to project unique index sequences in FASTA format '
-                             '(used to determine the unique barcode length)')
+                             '(used, together with --complete_indexes_fna, to locate the '
+                             'barcode position within the adapter)')
 
     parser.add_argument('--output', '-o', required=True,
                         help='Output fasta file name to write exact unique index sequence from complete query index sequences')
@@ -48,13 +54,65 @@ def check_arg(args=None):
 ### FUNCTIONS ###
 #################
 
-# Index position constants
-INDEX_POSITIONS = {
-    'i7': {'start': 24, 'end': 32},  # 8-base unique sequence at positions 24-32 - 0based (exclusive)
-    'i5': {'start': 29, 'end': 37}   # 8-base unique sequence at positions 29-37 - 0based (exclusive)
-}
-print(INDEX_POSITIONS)
+# Populated at runtime by determine_index_positions() -- see __main__ below.
+# {'i7': {'start': int, 'end': int}, 'i5': {'start': int, 'end': int}}
+# start/end are 0-based positions of the unique barcode within the complete
+# adapter+barcode sequence (exclusive end), in subject/template coordinates.
+INDEX_POSITIONS = {}
 
+
+def determine_index_positions(complete_indexes_fna, unique_indexes_fna):
+    """Locate where each slot's unique barcode sits within its complete
+    adapter+barcode sequence, for this project's index kit.
+
+    Adapter chemistry places the barcode at a fixed offset for every index
+    within a given slot (i5/i7) of a kit, but that offset -- and the barcode
+    length -- differs between kits (NEBNext vs NEXTERA vs custom). Rather
+    than hardcoding a single kit's positions, this locates the unique
+    barcode as an exact substring of its complete sequence (matched by
+    index ID) for every index, and uses the (start, length) pair shared by
+    the largest number of indexes per slot.
+
+    Returns {'i5': {'start': int, 'end': int}, 'i7': {'start': int, 'end': int}}.
+    """
+    complete = SeqIO.to_dict(SeqIO.parse(complete_indexes_fna, 'fasta'))
+
+    slot_windows = {'i5': {}, 'i7': {}}  # (start, end) -> number of indexes agreeing
+    for record in SeqIO.parse(unique_indexes_fna, 'fasta'):
+        index_id = record.id
+        slot = get_index_type(index_id)
+        if slot is None or index_id not in complete:
+            continue
+
+        full_seq = str(complete[index_id].seq)
+        unique_seq = str(record.seq)
+        start = full_seq.find(unique_seq)
+        if start == -1:
+            print(f"Warning: unique index '{index_id}' was not found as a substring "
+                  f"of its complete index sequence -- skipping it for position detection",
+                  file=sys.stderr)
+            continue
+
+        window = (start, start + len(unique_seq))
+        slot_windows[slot][window] = slot_windows[slot].get(window, 0) + 1
+
+    positions = {}
+    for slot, windows in slot_windows.items():
+        if not windows:
+            raise ValueError(
+                f"Could not determine the barcode position for slot '{slot}': no unique "
+                f"index sequence was found within its complete index sequence. Check that "
+                f"{complete_indexes_fna} and {unique_indexes_fna} use matching index IDs "
+                f"and that the barcode is a substring of the complete sequence."
+            )
+        if len(windows) > 1:
+            print(f"Warning: inconsistent {slot} barcode positions detected across indexes "
+                  f"in this kit: {windows} (window -> index count) -- using the most common one",
+                  file=sys.stderr)
+        best_window = max(windows.items(), key=lambda kv: kv[1])[0]
+        positions[slot] = {'start': best_window[0], 'end': best_window[1]}
+
+    return positions
 
 
 def parse_blast_line(line):
@@ -62,28 +120,12 @@ def parse_blast_line(line):
     fields = line.strip().split('\t')
     return {
         'qseqid': fields[0],    # Query sequence ID
-        'sseqid': fields[1],    # Subject sequence ID  
+        'sseqid': fields[1],    # Subject sequence ID
         'qstart': int(fields[6])-1, # Query alignment start
         'qend': int(fields[7])-1,   # Query alignment end
         'sstart': int(fields[8])-1, # Subject alignment start
         'send': int(fields[9])-1    # Subject alignment end
     }
-
-def determine_index_length(unique_indexes_fna):
-    """Return the unique barcode length, read directly from the project's
-    unique index FASTA rather than hardcoded per index kit -- this keeps
-    'custom' kits (and any future kit) working without extra plumbing.
-    Warns if the sequences aren't all the same length, and uses the first
-    record's length."""
-    lengths = [len(str(record.seq)) for record in SeqIO.parse(unique_indexes_fna, 'fasta')]
-    if not lengths:
-        raise ValueError(f"No sequences found in {unique_indexes_fna}")
-    if len(set(lengths)) > 1:
-        print(f"Warning: unique index sequences in {unique_indexes_fna} have "
-              f"inconsistent lengths {sorted(set(lengths))}; using {lengths[0]}",
-              file=sys.stderr)
-    return lengths[0]
-
 
 def get_index_type(subject_id):
     """Determine index type from subject sequence ID"""
@@ -136,31 +178,33 @@ def extract_unique_sequence(query_seq, blast_data, index_type):
     unique_start_subj, unique_end_subj = retrieve_unique_positions_subject(index_type)
     if unique_start_subj is None:
         return None
+    # Slice width comes directly from this slot's detected window, rather than
+    # a separate length constant that could silently drift out of sync with it.
+    index_length = unique_end_subj - unique_start_subj
 
     # Check if unique region is covered by alignment
     if not is_unique_region_covered(sstart, send, unique_start_subj, unique_end_subj):
         return None
-    
-    # Check minimum subject alignment length 
+
+    # Check minimum subject alignment length
     if abs(send - sstart) < 20:
         return None
 
     subject_reverse = sstart > send
     if subject_reverse:
-        print("offset_from_align_end = sstart - unique_end_subj")
         offset_from_align_end = sstart - unique_end_subj
         unique_start_query = qstart + offset_from_align_end
-        unique_end_query = unique_start_query + INDEX_LENGTH 
+        unique_end_query = unique_start_query + index_length
         extracted_seq = query_seq[unique_start_query:unique_end_query]
     else:
         offset_from_align_start = unique_start_subj - sstart
         unique_start_query = qstart + offset_from_align_start
-        unique_end_query = unique_start_query + INDEX_LENGTH 
+        unique_end_query = unique_start_query + index_length
         extracted_seq = query_seq[unique_start_query:unique_end_query]
 
     # Validate extracted sequence length
-    if len(extracted_seq) != INDEX_LENGTH:
-        return None 
+    if len(extracted_seq) != index_length:
+        return None
 
     return extracted_seq
 
@@ -226,10 +270,12 @@ def process_blast_output(blast_file, fasta_file, output_file):
 if __name__ == "__main__":
     args = check_arg()
 
-    # Barcode length is derived from the actual unique index sequences in use,
-    # rather than hardcoded per index kit name -- works for NEBNext, NEXTERA,
-    # and custom kits alike.
-    INDEX_LENGTH = determine_index_length(args.unique_indexes_fna)
+    # Barcode position and length are derived from the actual complete/unique
+    # index sequences in use, rather than a single hardcoded window -- works
+    # for NEBNext, NEXTERA, and custom kits alike, each of which places the
+    # barcode at a different offset within its complete adapter sequence.
+    INDEX_POSITIONS = determine_index_positions(args.complete_indexes_fna, args.unique_indexes_fna)
+    print(f"Detected index positions: {INDEX_POSITIONS}", file=sys.stderr)
 
     results = process_blast_output(args.input, args.reads, args.output)
     print(f"Processed {len(results)} successful extractions", file=sys.stderr)

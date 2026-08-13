@@ -20,6 +20,7 @@ process extractUniqQueryIndex {
 
     04-extract_unique_query_indexes.py \
     -i "${blastOut}" \
+    -ic "${projectIndexFiles[0]}" \
     -iu "${projectIndexFiles[1]}" \
     -r "${readFileFasta}" \
     -o "04-extract_uniq_query_indexes/${chunkID}.unique_query_indexes.fna"
