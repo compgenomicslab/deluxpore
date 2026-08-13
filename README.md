@@ -163,10 +163,11 @@ During demultiplexing, some reads cannot be unambiguously assigned to a sample. 
 - **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. The read is excluded from all sample files to avoid misassignment.
 - **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design.
 
-After each run, deluxpore writes a per-chunk report to:
+After each run, deluxpore writes a merged report to:
 ```
-{outDir}/ambiguous_reads_report/ambiguous_reads.{chunkID}.tsv
+{outDir}/ambiguous_reads_report/ambiguous_reads.tsv
 ```
+Per-ambiguity-type FASTA files (`tie_both_valid.fna`, `single_barcode_multi_sample.fna`) are published alongside it in the same directory.
 
 The TSV has four columns:
 

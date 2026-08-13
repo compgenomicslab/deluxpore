@@ -118,7 +118,9 @@ include { removeIlluminaIndexes } from './modules/06-remove_illumina_indexes'
 
 include { parseBestDemulti } from './modules/07-parse_best_and_demultiplex'
 
-include { concatenateSamples } from './modules/08-concat_sample_fna_files'
+include { concatenateSamples }         from './modules/08-concat_sample_fna_files'
+include { concatenateSummaries }       from './modules/08-concat_sample_fna_files'
+include { concatenateAmbiguousReport } from './modules/08-concat_sample_fna_files'
 
 
 
@@ -249,7 +251,31 @@ workflow {
         .groupTuple()
 
     concatenatedSamples = concatenateSamples(allSampleFiles)
-    
+
+    // 9) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
+    //    (tie_both_valid, single_barcode_multi_sample)
+    allAmbiguousFastas = parseBestDemultiOutput
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList ->
+            return ambiguousFilesList
+        }
+        .collect()
+        .flatten()
+        .map { file ->
+            def ambiguityType = file.name.split('\\.')[0]
+            return [ambiguityType, file]
+        }
+        .groupTuple()
+
+    concatenateSummaries(allAmbiguousFastas)
+
+    // 10) Merge per-chunk ambiguous read TSV reports into a single report
+    allTsvReports = parseBestDemultiOutput
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList ->
+            return tsvFile
+        }
+        .collect()
+
+    concatenateAmbiguousReport(allTsvReports)
 
 }
 
