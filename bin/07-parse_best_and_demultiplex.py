@@ -252,14 +252,25 @@ def write_info_into_file(grouped_data, chunkID, output_path):
     with open(f'{output_path}/grouped_data.{chunkID}.json', 'w') as f:
         json.dump(serializable_grouped_data, f, indent=4)
 
-def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, output_path, ambiguous_events, rc_suppressed=None):
+def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, output_path, ambiguous_events, rc_suppressed=None, assignment_counts=None):
     """Write per-sample FASTA files.
 
     rc_suppressed: optional set of read names that have an RC collision but no
     unambiguous sample assignment.  These reads are flagged in ambiguous_reads.tsv
     (by append_rc_collision_ambiguous_events, called before this function) but must
     not be written to any sample FASTA — they have no quorum.
+
+    assignment_counts: optional dict mutated in place with counts of how reads
+    matched -- 'both' (i5+i7 confirmed), 'i5_only', 'i7_only', or 'unassigned'
+    (no valid/unique index found at all, including invalid i5+i7 pairs and
+    single-barcode multi-sample ties). This reflects the barcode-matching
+    outcome only, independent of RC-collision exclusion -- a read excluded by
+    rc_suppressed still counts under whichever path it matched via, since RC
+    collision is an orthogonal downstream QC filter on top of a valid match.
     """
+    if assignment_counts is None:
+        assignment_counts = defaultdict(int)
+
     i5_to_sample = {}
     i7_to_sample = {}
 
@@ -283,6 +294,7 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
             i7 = grouped_data[read].i7
 
             assigned_sample = None
+            assignment_path = "unassigned"  # overwritten below on a successful match
 
             #Case 1: both indexes present
             if i5 != "" and i7 != "":
@@ -290,11 +302,13 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                 for sample_name, sample_indexes in exp_des_dict.items():
                     if sample_indexes == index_pair:
                         assigned_sample = sample_name
+                        assignment_path = "both"
 
             #Case 2: only i5 present
             elif i5 != "" and i7 == "":
                 if len(i5_to_sample[i5]) == 1: #only one sample linked to the index
                     assigned_sample = i5_to_sample[i5][0]
+                    assignment_path = "i5_only"
                 else:
                     #i5 appears in more than one sample, therefore inconclusive
                     ambiguous_events.append((
@@ -307,6 +321,7 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
             elif i5 == "" and i7 != "":
                 if len(i7_to_sample[i7]) == 1: #only one sample linked to the index
                     assigned_sample = i7_to_sample[i7][0]
+                    assignment_path = "i7_only"
                 else:
                     #i7 appears in more than one sample, therefore inconclusive
                     ambiguous_events.append((
@@ -314,6 +329,8 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                         f"i7={i7} (no i5 found)",
                         "|".join(i7_to_sample[i7])
                     ))
+
+            assignment_counts[assignment_path] += 1
 
             if assigned_sample:
                 # If this read's only reason to be assigned is an RC-colliding barcode
@@ -333,6 +350,8 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
     finally:
         for file_handle in per_sample_chunk_output_file.values():
             file_handle.close()
+
+    return assignment_counts
 
 
 
@@ -454,6 +473,26 @@ def write_ambiguous_report(ambiguous_events, chunkID, output_path):
     print(f"Ambiguous reads report written to: {report_path} ({len(ambiguous_events)} events)")
 
 
+def write_index_assignment_summary(assignment_counts, chunkID, output_path):
+    """Write a one-row-per-chunk summary of how reads were matched: via a
+    confirmed i5+i7 pair ('both'), a single unambiguous barcode ('i5_only' /
+    'i7_only'), or not at all ('unassigned'). This reflects the barcode
+    matching outcome only -- independent of RC-collision exclusion, which is
+    a separate downstream QC filter (see write_fasta_files_per_sample)."""
+    both = assignment_counts.get("both", 0)
+    i5_only = assignment_counts.get("i5_only", 0)
+    i7_only = assignment_counts.get("i7_only", 0)
+    unassigned = assignment_counts.get("unassigned", 0)
+    total = both + i5_only + i7_only + unassigned
+
+    report_path = f'{output_path}/index_assignment_summary.{chunkID}.tsv'
+    with open(report_path, 'w') as f:
+        f.write("chunkID\tboth\ti5_only\ti7_only\tunassigned\ttotal_reads\n")
+        f.write(f"{chunkID}\t{both}\t{i5_only}\t{i7_only}\t{unassigned}\t{total}\n")
+    print(f"Index assignment summary written to: {report_path} "
+          f"(both={both}, i5_only={i5_only}, i7_only={i7_only}, unassigned={unassigned})")
+
+
 if __name__ == "__main__":
     args = check_arg()
 
@@ -481,8 +520,9 @@ if __name__ == "__main__":
         print(f"{len(rc_suppressed)} RC collision reads excluded from sample FASTA "
               f"(best collision dist <= {withhold_dist})")
 
-    write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events, rc_suppressed)
+    assignment_counts = write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events, rc_suppressed)
 
     write_ambiguous_fasta_files(ambiguous_events, reads_dict, chunkID, args.output)
     write_ambiguous_report(ambiguous_events, chunkID, args.output)
+    write_index_assignment_summary(assignment_counts, chunkID, args.output)
 
