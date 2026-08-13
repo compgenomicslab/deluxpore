@@ -50,7 +50,7 @@ nextflow run ktlina/deluxpore -profile local,conda --conda_env /path/to/envs/del
 | `conda` | Enable conda environment management |
 
 > [!NOTE]
-> SLURM queue names defined in the configuration files (e.g., 'fast', 'medium') are specific to our institutional HPC system. Users should modify these values in the SLURM configuration to match their local cluster queue names.
+> SLURM queue names defined in the configuration files (e.g., 'compute', 'bigmem') are specific to our institutional HPC system. Users should modify these values in the SLURM configuration to match their local cluster queue names.
 
 <a name="simple-usage"></a>
 ## Simple Usage
@@ -81,7 +81,7 @@ Code to run deluxpore on test dataset:
 <a name="quick-usage"></a>
 ## Full Usage
 ```angular2html
-nextflow run -latest ktlina/deluxpore/main.nf --help
+nextflow run -latest ./deluxpore/main.nf --help
 
 =========================================
  D E L U X P O R E   P I P E L I N E
@@ -96,19 +96,19 @@ Required parameters:
   --readsFileExtension   Glob pattern to match input read files (e.g., *.fastq.gz, *.fq.gz, *.fastq, *.fq)
                          Each matched file is processed as a separate chunk in parallel.
                          Examples:
-                           "*.fastq.gz"     - Process all gzipped fastq files as separate chunks
-                           "sample1.fq.gz"  - Process a single file
-                           "batch_*.fq"     - Process all files matching the pattern
+                            "*.fastq.gz"     - Process all gzipped fastq files as separate chunks
+                            "sample1.fq.gz"  - Process a single file
+                            "batch_*.fq"     - Process all files matching the pattern
   --experimentalDesign   Path to sample-to-index mapping file (TSV)
   --outDir               Output directory
   --libraryIndexSeqs     Illumina index kit used for multiplexing
                          Accepted values: NEBNext, NEXTERA, custom
                          When set to 'custom', also provide:
-                           --customCompleteIndexes  Path to complete index sequences FASTA (adapter + barcode). (See assets folder for reference formatting). 
+                           --customCompleteIndexes  Path to complete index sequences FASTA (adapter + barcode)
                            --customUniqueIndexes    Path to unique barcode-only index sequences FASTA
 
 Optional parameters:
-  --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: false]
+  --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
   --nanoQscore             Minimum quality score [default: 20]
   --nanoLength             Minimum read length [default: 100]
   --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
@@ -119,6 +119,9 @@ Resource limits:
 
 Other:
   --conda_env            Path to pre-built conda environment [default: null]
+  --publishIntermediate  Publish intermediate files [default: false]
+
+  --version              Show pipeline version
   --help                 Show this help message
 
 Examples:
