@@ -1,4 +1,4 @@
-name: metag_long
+name: deluxpore
 channels:
   - conda-forge
   - bioconda
