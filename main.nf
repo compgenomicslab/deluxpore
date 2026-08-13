@@ -1,7 +1,7 @@
 nextflow.enable.dsl=2
 /*
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- *   Define the default parameters 
+ *   Define the default parameters
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
@@ -20,10 +20,10 @@ def helpMessage() {
     =========================================
      D E L U X P O R E   P I P E L I N E
     =========================================
-    
+
     Usage:
       nextflow run ktlina/deluxpore -profile local,conda -params-file params.json
-    
+
     Required parameters:
       --projectName          Name for your project
       --readsDir             Path to directory containing Nanopore reads
@@ -45,16 +45,15 @@ def helpMessage() {
       --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
       --nanoQscore             Minimum quality score [default: 20]
       --nanoLength             Minimum read length [default: 100]
-      --trimmIlluminaIndexes   Trim Illumina adapter sequences from the ends of demultiplexed reads
-                               [default: false]
-      --removeChimeras         Trim Illumina adapters AND split reads at confident internal adapter
-                               occurrences (chimera detection); implies --trimmIlluminaIndexes
-                               [default: false]
+      --trimmIlluminaIndexes   Trim Illumina adapter sequences from demultiplexed reads.
+                               Trimming runs per-sample after demultiplexing; also enables
+                               chimera detection (see --removeChimeras) [default: false]
+      --removeChimeras         Split reads at confident internal adapter occurrences
+                               (chimera detection) instead of leaving them uncorrected [default: false]
       --removeChimerasCoverage Minimum fraction of the adapter template an internal alignment
                                must cover to be treated as a genuine chimeric junction rather
-                               than noise; 0.7 sits in the empty valley between the short
-                               coincidental-match cluster (~0.15-0.20) and the full-length
-                               genuine-chimera cluster (~0.90-1.0) [default: 0.7]
+                               than noise; 0.7 sits in the valley between coincidental short
+                               matches (~0.15-0.20) and genuine chimeras (~0.90-1.0) [default: 0.7]
 
     Resource limits:
       --max_cpus             Maximum CPUs to use [default: auto-detected]
@@ -63,8 +62,8 @@ def helpMessage() {
     Other:
       --conda_env            Path to pre-built conda environment [default: null]
       --publishIntermediate  Publish intermediate files [default: false]
-      
-      --version              Show pipeline version    
+
+      --version              Show pipeline version
       --help                 Show this help message
 
     Examples:
@@ -116,17 +115,15 @@ log.info """\
  *  ~~~~~~~~~~~~~~~~~~
 */
 
-//Import required modules. Repeated modules will be loaded with corresponding aliases
-
 include { generateIndexFiles } from './modules/00-generate_index_files'
 
 include { removeNanoporeIndexes } from './modules/00-trim_and_filter'
-include { filterNanoporeReads } from './modules/00-trim_and_filter'
+include { filterNanoporeReads }   from './modules/00-trim_and_filter'
 
 include { transFastqtoFasta } from './modules/01-transform_to_fasta'
 
-include { createDB } from './modules/02-reads2database'
-include { mapReads2DB } from './modules/02-reads2database'
+include { createDB }      from './modules/02-reads2database'
+include { mapReads2DB }   from './modules/02-reads2database'
 
 include { extractUniqQueryIndex } from './modules/04-extract_uniq_query_index'
 
@@ -142,16 +139,14 @@ include { concatenateChimeraReports }  from './modules/08-concat_sample_fna_file
 include { trimAndRemoveChimeras } from './modules/09-trim_and_remove_chimeras'
 
 
-
-
 /*
     ~~~~~~~~~~~~~~~~~~
      Run workflow
     ~~~~~~~~~~~~~~~~~~
 */
 workflow {
-    
-    // 0) Generate index files one per demultiplexing experiment
+
+    // 0) Generate index files
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
 
     if (params.libraryIndexSeqs.toLowerCase() == "custom") {
@@ -171,50 +166,37 @@ workflow {
     runIndexFilesOutput = generateIndexFiles(generateIndexFilesInput)
 
     read_ch = Channel.fromPath("${params.readsDir}/${params.readsFileExtension}", type: 'file')
-    // read_ch = read_ch.map { file ->
-    //     def chunkID = file.name.replaceAll("\\.fastq\\.gz", "")
-    //     return [chunkID, file]
-    // }
     read_ch = read_ch.map { file ->
         def extension = params.readsFileExtension
-            .replace("*", "")  // Remove glob asterisk: "*.fastq.gz" → ".fastq.gz"
+            .replace("*", "")
         def chunkID = file.name.replace(extension, "")
-    return [chunkID, file]
+        return [chunkID, file]
     }
 
-    if (params.trimandfilterNanopore){
-        // 1) Remove Nanopore indexes from read files
+    if (params.trimandfilterNanopore) {
+        // 1) Remove Nanopore indexes and filter by quality/length
         removeNanoporeIndexesOutput = removeNanoporeIndexes(read_ch)
-        filterNanoporeReadsOutput = filterNanoporeReads(removeNanoporeIndexesOutput)
-
-        // 3) Transform read files to fasta format
-        transFastqtoFastaOutput = transFastqtoFasta(filterNanoporeReadsOutput)
+        filterNanoporeReadsOutput   = filterNanoporeReads(removeNanoporeIndexesOutput)
+        transFastqtoFastaOutput     = transFastqtoFasta(filterNanoporeReadsOutput)
     } else {
         transFastqtoFastaOutput = transFastqtoFasta(read_ch)
     }
 
-    // 4) Map fastas to illumina index sequences
-    createDBInput = runIndexFilesOutput.map { tuple ->
-        return tuple[0]}
+    // 2) Map reads to Illumina index database
+    createDBInput  = runIndexFilesOutput.map { tuple -> return tuple[0] }
     // .first() converts the single-item queue channel to a value channel so it
     // can be consumed by both mapReads2DB (step 4) and trimAndRemoveChimeras (step 9).
     createDBOutput = createDB(createDBInput).first()
 
-    // Map reads making sure to use fasta formated reads
-    mapReads2DBInput = transFastqtoFastaOutput.combine(createDBOutput)
+    mapReads2DBInput  = transFastqtoFastaOutput.combine(createDBOutput)
     mapReads2DBOutput = mapReads2DB(mapReads2DBInput)
-    // mapReads2DBOutput.view()
 
-    // // 5) Parse BLAST output to extract complete query index sequences
-    // parseBlastOutputInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
-    // parseBlastOutOutput = parseBlastOut(parseBlastOutputInput)
-
-    // 6) Extract unique query indexes from query complete fasta sequence files based on mapping to subject index sequences and their fixed position
-    extractUniqQueryIndexInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
+    // 3) Extract unique query indexes
+    extractUniqQueryIndexInput  = transFastqtoFastaOutput.join(mapReads2DBOutput)
     extractUniqQueryIndexOutput = extractUniqQueryIndex(extractUniqQueryIndexInput)
 
-    // 6) Calculate Levenshtein distance between read unique index sequences (and RC) and illumina unique index sequences
-    calcLevDistanceInput = extractUniqQueryIndexOutput.combine(runIndexFilesOutput.map { [it] })
+    // 4) Calculate Levenshtein distance; also detects RC collision candidates
+    calcLevDistanceInput  = extractUniqQueryIndexOutput.combine(runIndexFilesOutput.map { [it] })
     calcLevDistanceOutput = calcLevDistance(calcLevDistanceInput)
 
     // Sample assignment always runs on untrimmed reads.
@@ -226,16 +208,14 @@ workflow {
     // 7) Parse distance matrix, extract best distance values per read and demultiplex
     parseBestDemultiOutput = parseBestDemulti(parseBestDemultiInput)
 
-    // 8) Join chunk files by sample name and concatenate into final sample files
+    // 8) Concatenate per-chunk sample files into final per-sample files
     allSampleFiles = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas ->
             return sampleFilesList
         }
-        .collect()  // Wait for all chunks to complete
-        .flatten()  // Flatten all files into single channel
-        .filter { file ->
-            file.name.endsWith('.fna')
-        }
+        .collect()
+        .flatten()
+        .filter { file -> file.name.endsWith('.fna') }
         .map { file ->
             def sampleName = file.name.split('\\.')[0]
             return [sampleName, file]
@@ -269,13 +249,12 @@ workflow {
 
     concatenateSummaries(allAmbiguousFastas)
 
-    // 11) Merge per-chunk ambiguous read TSV reports into a single report
+    // 10) Merge per-chunk ambiguous read TSV reports into a single report
     allTsvReports = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas -> tsvReport }
         .collect()
 
     concatenateAmbiguousReport(allTsvReports)
-    
 
 }
 

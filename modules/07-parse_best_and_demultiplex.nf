@@ -25,7 +25,8 @@ process parseBestDemulti {
     -id ${levDistMat} \
     -rc ${rcCollisionEvents} \
     -ed ${expDesFile} \
-    -o "07-parse_best_and_demultiplex_per_chunk"
+    -o  "07-parse_best_and_demultiplex_per_chunk" \
+    -rcw ${params.rcCollisionWithholdDist}
 
     """
 }

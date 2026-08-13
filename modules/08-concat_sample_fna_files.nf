@@ -3,18 +3,18 @@ process concatenateSamples {
 
     tag { "${params.projectName}.rconcatenateSamples.${sampleName}" }
 
-    publishDir "${params.outDir}/demultiplexed_samples", mode: 'copy',
-        enabled: !(params.trimmIlluminaIndexes || params.removeChimeras)
+    publishDir "${params.outDir}/demultiplexed_samples", mode: 'copy'
 
     input:
     tuple val(sampleName), path(sampleFiles)
 
     output:
-    tuple val(sampleName), path("${sampleName}.fna")
+    tuple val(sampleName), path("${sampleName}${params.trimmIlluminaIndexes ? '.trimmed' : ''}.fna")
 
     script:
+    def outFile = "${sampleName}${params.trimmIlluminaIndexes ? '.trimmed' : ''}.fna"
     """
-    cat ${sampleFiles.join(' ')} > ${sampleName}.fna
+    cat ${sampleFiles.join(' ')} > ${outFile}
     """
 }
 
