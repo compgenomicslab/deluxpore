@@ -129,13 +129,17 @@ Resource limits:
 Other:
   --conda_env                Path to pre-built conda environment [default: null]
   --publishIntermediate      Publish intermediate files [default: false]
-  --rcCollisionWithholdDist  RC collision withholding threshold. Reads whose best
+  --rcCollisionWithholdDist  RC collision exclusion threshold. Reads whose best
                              RC collision Levenshtein distance is <= this value are
-                             withheld from their assigned sample FASTA and reported
-                             as rc_collision_withheld in ambiguous_reads.tsv.
-                             Set to 0 to suppress only exact RC mirrors (dist=0);
-                             -1 (default) disables withholding (flag in TSV only).
-                             [default: -1]
+                             excluded from their assigned sample FASTA and reported
+                             as rc_collision_excluded in ambiguous_reads.tsv.
+                             0 (default) excludes only exact RC mirrors (dist=0) --
+                             an 8bp barcode matching a different, wrong-slot index
+                             with zero edits is not plausible ONT noise and is
+                             treated as a genuine collision. Set to -1 to disable
+                             exclusion entirely (flag in TSV only); set to 1 to
+                             also withhold near-exact (dist<=1) collisions.
+                             [default: 0]
 
   --version              Show pipeline version
   --help                 Show this help message
@@ -212,8 +216,8 @@ During demultiplexing, some reads cannot be unambiguously assigned to a sample, 
 
 - **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. The read is excluded from all sample files to avoid misassignment.
 - **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design.
-- **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is the reverse complement of a barcode used by a different sample. The read is still written to its assigned sample file (slot-restricted matching prevents cross-assignment), but it is flagged here so you can inspect whether the collision affected assignment confidence.
-- **`rc_collision_withheld`** — Same as `rc_collision`, but the best RC collision distance was within the `--rcCollisionWithholdDist` threshold, so the read has been **withheld** from all sample files. The `possible_samples` column shows which sample it would have been assigned to. Withholding is disabled by default (`--rcCollisionWithholdDist -1`).
+- **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is the near-exact reverse complement of a barcode used by a different sample, but the distance was above the `--rcCollisionWithholdDist` threshold. The read is still written to its assigned sample file (slot-restricted matching prevents cross-assignment), but it is flagged here so you can inspect whether the collision affected assignment confidence.
+- **`rc_collision_excluded`** — Same as `rc_collision`, but the best RC collision distance was within the `--rcCollisionWithholdDist` threshold, so the read has been **excluded** from all sample files. The `possible_samples` column shows which sample it would have been assigned to. By default (`--rcCollisionWithholdDist 0`), this covers exact RC-mirror matches (dist=0).
 
 After each run, deluxpore writes a merged report to:
 ```
@@ -225,22 +229,28 @@ The TSV has four columns:
 | Column | Description |
 |--------|-------------|
 | `read_id` | Nanopore read identifier |
-| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `rc_collision`, or `rc_collision_withheld` |
+| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `rc_collision`, or `rc_collision_excluded` |
 | `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance |
-| `possible_samples` | Sample the read was assigned to (or would have been assigned to if withheld) |
+| `possible_samples` | Sample the read was assigned to (or would have been assigned to if excluded) |
 
 Use this report to identify which samples are affected by barcode collisions and verify whether the ambiguous reads are consistent with your plate layout.
 
-### RC collision withholding
+### RC collision exclusion
 
-Some index kits contain pairs whose i5 and i7 barcodes are reverse complements of each other (e.g. sample A's i5 = RC of sample B's i7). This means a read from sample A sequenced in reverse-complement orientation presents barcodes that are indistinguishable from sample B. By default (`--rcCollisionWithholdDist -1`) the pipeline assigns and flags these reads but does not remove them. To suppress exact RC-mirror cases from sample files entirely, set `--rcCollisionWithholdDist 0`.
+Some index kits contain pairs whose i5 and i7 barcodes are reverse complements of each other (e.g. sample A's i5 = RC of sample B's i7). This means a read from sample A sequenced in reverse-complement orientation presents barcodes that are indistinguishable from sample B.
+
+Only near-exact collisions are ever considered in the first place — a read's best cross-slot RC distance has to be <= 1 (hardcoded) before it is reported at all, since anything looser is far more likely to be ordinary ONT basecalling noise on an 8bp barcode than a genuine collision. `--rcCollisionWithholdDist` then controls what happens to those reports:
+
+- **`0` (default)** — exclude only exact RC mirrors (dist=0) from the sample FASTA. An 8bp barcode matching a *different*, wrong-slot index with zero edits is not plausible sequencing noise, so it's treated as a genuine collision and dropped; dist=1 collisions are flagged (`rc_collision`) but left in place, since those are plausibly just sequencing error.
+- **`-1`** — never exclude; assign and flag both dist=0 and dist=1 collisions but leave every read in its sample file.
+- **`1`** — exclude both dist=0 and dist=1 collisions.
 
 > [!NOTE]
 > **Written to sample file?**
 > - `tie_both_valid` → ❌ excluded
 > - `single_barcode_multi_sample` → ❌ excluded
 > - `rc_collision` → ✅ written to assigned sample
-> - `rc_collision_withheld` → ❌ excluded (only when `--rcCollisionWithholdDist >= 0`)
+> - `rc_collision_excluded` → ❌ excluded (whenever the collision distance is <= `--rcCollisionWithholdDist`, and `--rcCollisionWithholdDist >= 0`)
 
 <a name="acknowledgements"></a>
 ## Acknowledgements

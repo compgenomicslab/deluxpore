@@ -28,12 +28,21 @@ process trimAndRemoveChimeras {
         -out ${sampleName}.vs_index.out \\
         -num_threads ${task.cpus}
 
+    # --output is written to a temp name and moved into place afterwards:
+    # ${sampleFasta} can be identically named ${sampleName}.trimmed.fna (when
+    # trimmIlluminaIndexes concatenates samples under that name already), and
+    # it is staged in as a symlink to the upstream work dir. Writing directly
+    # to that name while 09-trim_and_remove_chimeras.py is still lazily
+    # reading --fasta_reads (Bio.SeqIO.index) would truncate the file through
+    # the symlink mid-read, corrupting it and clobbering the upstream cache.
     09-trim_and_remove_chimeras.py \\
         --fasta_reads ${sampleFasta} \\
         --blast_output ${sampleName}.vs_index.out \\
         --complete_indexes_fna ${completeIndexesFna} \\
         ${chimeraFlags} \\
-        --output ${sampleName}.trimmed.fna \\
+        --output ${sampleName}.trimmed.fna.tmp \\
         --report ${sampleName}.chimera_report.tsv
+
+    mv ${sampleName}.trimmed.fna.tmp ${sampleName}.trimmed.fna
     """
 }

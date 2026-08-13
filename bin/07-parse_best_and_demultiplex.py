@@ -38,11 +38,12 @@ def check_arg(args=None):
     parser.add_argument('--rc_collision_events', '-rc', required=True,
                         help='Path to RC collision events TSV from bin/05')
 
-    parser.add_argument('--rc_collision_withhold_dist', '-rcw', type=int, default=-1,
+    parser.add_argument('--rc_collision_withhold_dist', '-rcw', type=int, default=0,
                         help='Reads whose best RC collision distance is <= this value are '
-                             'withheld from their sample FASTA and reported as '
-                             'rc_collision_withheld in ambiguous_reads.tsv. '
-                             '-1 (default) = flag only, never withhold.')
+                             'excluded from their sample FASTA and reported as '
+                             'rc_collision_excluded in ambiguous_reads.tsv. '
+                             '0 (default) = exclude only exact RC mirrors (dist=0); '
+                             '-1 = flag only, never exclude.')
 
     return parser.parse_args()
 
@@ -356,13 +357,13 @@ def load_rc_collision_events(rc_collision_file):
 
 def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_des_dict,
                                          ambiguous_events, withhold_dist=-1):
-    """Flag RC collision reads in ambiguous_events; return the set of withheld read names.
+    """Flag RC collision reads in ambiguous_events; return the set of excluded read names.
 
     Two reporting levels depending on withhold_dist:
       rc_collision          — flagged in TSV, still written to its sample FASTA.
-      rc_collision_withheld — flagged AND suppressed from sample FASTA; only used when
+      rc_collision_excluded — flagged AND excluded from sample FASTA; only used when
                               the read's best RC collision dist <= withhold_dist.
-                              withhold_dist=-1 (default) disables withholding entirely.
+                              withhold_dist=-1 disables exclusion entirely.
 
     Deduplication: bin/05 records one row per BLAST alignment × colliding index.
     We keep the best (lowest) distance per (read_name, slot, colliding_index), then
@@ -413,11 +414,11 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
             matches = [s for s, idxs in exp_des_dict.items() if idxs[1] == assigned_i7]
             assigned_sample = matches[0] if len(matches) == 1 else "unassigned"
 
-        withheld = (withhold_dist >= 0 and read_min_dist[read_name] <= withhold_dist)
-        if withheld:
+        excluded = (withhold_dist >= 0 and read_min_dist[read_name] <= withhold_dist)
+        if excluded:
             suppressed.add(read_name)
 
-        ambiguity_type = "rc_collision_withheld" if withheld else "rc_collision"
+        ambiguity_type = "rc_collision_excluded" if excluded else "rc_collision"
         ambiguous_events.append((
             read_name, ambiguity_type,
             f"{extraction_slot}_extracted; RC_matches_{colliding_index} (dist={dist})",
@@ -477,7 +478,7 @@ if __name__ == "__main__":
         rc_events, mapped_data, exp_des_dict, ambiguous_events, withhold_dist
     )
     if rc_suppressed:
-        print(f"{len(rc_suppressed)} RC collision reads withheld from sample FASTA "
+        print(f"{len(rc_suppressed)} RC collision reads excluded from sample FASTA "
               f"(best collision dist <= {withhold_dist})")
 
     write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events, rc_suppressed)
