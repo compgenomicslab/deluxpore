@@ -35,8 +35,9 @@ def check_arg(args=None):
     parser.add_argument('--reads', '-r', required=True,
                         help='Path to complete query sequences in FASTA format')
 
-    parser.add_argument('--index_kit', '-ik', required=True,
-                        help='Path to complete query sequences in FASTA format')
+    parser.add_argument('--unique_indexes_fna', '-iu', required=True,
+                        help='Path to project unique index sequences in FASTA format '
+                             '(used to determine the unique barcode length)')
 
     parser.add_argument('--output', '-o', required=True,
                         help='Output fasta file name to write exact unique index sequence from complete query index sequences')
@@ -67,6 +68,22 @@ def parse_blast_line(line):
         'sstart': int(fields[8])-1, # Subject alignment start
         'send': int(fields[9])-1    # Subject alignment end
     }
+
+def determine_index_length(unique_indexes_fna):
+    """Return the unique barcode length, read directly from the project's
+    unique index FASTA rather than hardcoded per index kit -- this keeps
+    'custom' kits (and any future kit) working without extra plumbing.
+    Warns if the sequences aren't all the same length, and uses the first
+    record's length."""
+    lengths = [len(str(record.seq)) for record in SeqIO.parse(unique_indexes_fna, 'fasta')]
+    if not lengths:
+        raise ValueError(f"No sequences found in {unique_indexes_fna}")
+    if len(set(lengths)) > 1:
+        print(f"Warning: unique index sequences in {unique_indexes_fna} have "
+              f"inconsistent lengths {sorted(set(lengths))}; using {lengths[0]}",
+              file=sys.stderr)
+    return lengths[0]
+
 
 def get_index_type(subject_id):
     """Determine index type from subject sequence ID"""
@@ -209,11 +226,10 @@ def process_blast_output(blast_file, fasta_file, output_file):
 if __name__ == "__main__":
     args = check_arg()
 
-    # Set index length based on index kit
-    if args.index_kit == "NEXTERA":
-        INDEX_LENGTH = 10
-    elif args.index_kit == "NEBNext":
-        INDEX_LENGTH = 8
+    # Barcode length is derived from the actual unique index sequences in use,
+    # rather than hardcoded per index kit name -- works for NEBNext, NEXTERA,
+    # and custom kits alike.
+    INDEX_LENGTH = determine_index_length(args.unique_indexes_fna)
 
     results = process_blast_output(args.input, args.reads, args.output)
     print(f"Processed {len(results)} successful extractions", file=sys.stderr)
