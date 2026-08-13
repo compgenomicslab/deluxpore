@@ -128,11 +128,40 @@ include { concatenateSamples } from './modules/08-concat_sample_fna_files'
      Run workflow
     ~~~~~~~~~~~~~~~~~~
 */
+// Resolve the complete/unique Illumina index sequence FASTA files based on
+// the library prep kit used (or a user-supplied custom pair).
+def libKit = params.libraryIndexSeqs?.toString()?.toLowerCase()
+def completeIndexesFile
+def uniqueIndexesFile
+
+switch (libKit) {
+    case 'nebnext':
+        completeIndexesFile = "${projectDir}/assets/NEBNext.complete_indexes.fna"
+        uniqueIndexesFile   = "${projectDir}/assets/NEBNext.unique_indexes.fna"
+        break
+    case 'nextera':
+        completeIndexesFile = "${projectDir}/assets/NEXTERA.complete_indexes.fna"
+        uniqueIndexesFile   = "${projectDir}/assets/NEXTERA.unique_indexes.fna"
+        break
+    case 'custom':
+        if (!params.customCompleteIndexes || !params.customUniqueIndexes) {
+            exit 1, "ERROR: --libraryIndexSeqs custom requires both --customCompleteIndexes and --customUniqueIndexes to be set"
+        }
+        completeIndexesFile = params.customCompleteIndexes
+        uniqueIndexesFile   = params.customUniqueIndexes
+        break
+    default:
+        exit 1, "ERROR: --libraryIndexSeqs must be one of: NEBNext, NEXTERA, custom (got: '${params.libraryIndexSeqs}')"
+}
+
 workflow {
-    
+
     // 0) Generate index files one per demultiplexing experiment
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
-    runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
+    generateIndexFilesInput = runIndexFilesInput
+        .combine(Channel.fromPath(completeIndexesFile, type: 'file'))
+        .combine(Channel.fromPath(uniqueIndexesFile, type: 'file'))
+    runIndexFilesOutput = generateIndexFiles(generateIndexFilesInput)
 
     read_ch = Channel.fromPath("${params.readsDir}/${params.readsFileExtension}", type: 'file')
     // read_ch = read_ch.map { file ->
@@ -205,7 +234,7 @@ workflow {
 
     // 8) Join chunk files by sample name and concatenate into final sample files
     allSampleFiles = parseBestDemultiOutput
-        .map { chunkID, sampleFilesList, jsonFile ->
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList ->
             return sampleFilesList
         }
         .collect()  // Wait for all chunks to complete
