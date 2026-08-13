@@ -204,6 +204,7 @@ workflow {
 
     // 6) Extract unique query indexes from query complete fasta sequence files based on mapping to subject index sequences and their fixed position
     extractUniqQueryIndexInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
+        .combine(runIndexFilesOutput.map { [it] })
     extractUniqQueryIndexOutput = extractUniqQueryIndex(extractUniqQueryIndexInput)
 
     // 6) Calculate Levenshtein distance between read unique index sequences (and RC) and illumina unique index sequences
