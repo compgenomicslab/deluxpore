@@ -52,7 +52,9 @@ INDEX_POSITIONS = {
     'i7': {'start': 24, 'end': 32},  # 8-base unique sequence at positions 24-32 - 0based (exclusive)
     'i5': {'start': 29, 'end': 37}   # 8-base unique sequence at positions 29-37 - 0based (exclusive)
 }
-print(INDEX_POSITIONS)
+
+# Index length derived from positions (consistent for both slots)
+INDEX_LENGTH = INDEX_POSITIONS['i7']['end'] - INDEX_POSITIONS['i7']['start']
 
 
 
@@ -208,12 +210,6 @@ def process_blast_output(blast_file, fasta_file, output_file):
 
 if __name__ == "__main__":
     args = check_arg()
-
-    # Set index length based on index kit
-    if args.index_kit == "NEXTERA":
-        INDEX_LENGTH = 10
-    elif args.index_kit == "NEBNext":
-        INDEX_LENGTH = 8
 
     results = process_blast_output(args.input, args.reads, args.output)
     print(f"Processed {len(results)} successful extractions", file=sys.stderr)
