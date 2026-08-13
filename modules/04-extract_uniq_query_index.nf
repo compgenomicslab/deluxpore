@@ -8,7 +8,7 @@ process extractUniqQueryIndex {
     publishDir "${params.outDir}/", mode: 'copy', overwrite: 'false', enabled: params.publishIntermediate
     
     input:
-    tuple val(chunkID), path(readFileFasta), path(blastOut)
+    tuple val(chunkID), path(readFileFasta), path(blastOut), path(projectIndexFiles)
 
     output:
     tuple val(chunkID), path ("04-extract_uniq_query_indexes/${chunkID}.unique_query_indexes.fna")
@@ -17,10 +17,11 @@ process extractUniqQueryIndex {
     """
 
     mkdir -p "04-extract_uniq_query_indexes"
-    
+
     04-extract_unique_query_indexes.py \
     -i "${blastOut}" \
-    -ik "${params.libraryIndexSeqs}" \
+    -ic "${projectIndexFiles[0]}" \
+    -iu "${projectIndexFiles[1]}" \
     -r "${readFileFasta}" \
     -o "04-extract_uniq_query_indexes/${chunkID}.unique_query_indexes.fna"
 

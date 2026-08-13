@@ -193,6 +193,7 @@ workflow {
 
     // 3) Extract unique query indexes
     extractUniqQueryIndexInput  = transFastqtoFastaOutput.join(mapReads2DBOutput)
+        .combine(runIndexFilesOutput.map { [it] })
     extractUniqQueryIndexOutput = extractUniqQueryIndex(extractUniqQueryIndexInput)
 
     // 4) Calculate Levenshtein distance; also detects RC collision candidates
