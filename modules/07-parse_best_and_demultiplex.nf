@@ -12,7 +12,12 @@ process parseBestDemulti {
     tuple val(chunkID), path(readFileFasta), path(levDistMat), path(expDesFile)
 
     output:
-    tuple val(chunkID), path ("07-parse_best_and_demultiplex_per_chunk/*.fna"), path ("07-parse_best_and_demultiplex_per_chunk/*.json"), path ("07-parse_best_and_demultiplex_per_chunk/*.tsv"), path ("07-parse_best_and_demultiplex_per_chunk/ambiguous/*.fna")
+    tuple val(chunkID),
+        path ("07-parse_best_and_demultiplex_per_chunk/*.fna"),
+        path ("07-parse_best_and_demultiplex_per_chunk/*.json"),
+        path ("07-parse_best_and_demultiplex_per_chunk/ambiguous_reads.*.tsv"),
+        path ("07-parse_best_and_demultiplex_per_chunk/ambiguous/*.fna"),
+        path ("07-parse_best_and_demultiplex_per_chunk/index_assignment_summary.*.tsv")
 
     script:
     """

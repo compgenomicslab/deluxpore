@@ -57,3 +57,28 @@ process concatenateAmbiguousReport {
     for f in "\${files[@]}"; do tail -n +2 "\$f"; done >> ambiguous_reads.tsv
     """
 }
+
+process concatenateIndexAssignmentSummary {
+    label 'fast'
+
+    tag { "${params.projectName}.rconcatenateIndexAssignmentSummary" }
+
+    publishDir "${params.outDir}/ambiguous_reads_report", mode: 'copy'
+
+    input:
+    path(tsvFiles)
+
+    output:
+    path("index_assignment_summary.tsv")
+
+    script:
+    """
+    files=(\$(ls index_assignment_summary.*.tsv | sort -V))
+    head -1 "\${files[0]}" > index_assignment_summary.tsv
+    for f in "\${files[@]}"; do tail -n +2 "\$f"; done >> index_assignment_summary.tsv
+
+    awk -F'\\t' 'NR>1{both+=\$2;i5+=\$3;i7+=\$4;un+=\$5;tot+=\$6} \
+        END{print "TOTAL\\t"both"\\t"i5"\\t"i7"\\t"un"\\t"tot}' \
+        <(tail -n +2 index_assignment_summary.tsv) >> index_assignment_summary.tsv
+    """
+}

@@ -118,9 +118,10 @@ include { removeIlluminaIndexes } from './modules/06-remove_illumina_indexes'
 
 include { parseBestDemulti } from './modules/07-parse_best_and_demultiplex'
 
-include { concatenateSamples }         from './modules/08-concat_sample_fna_files'
-include { concatenateSummaries }       from './modules/08-concat_sample_fna_files'
-include { concatenateAmbiguousReport } from './modules/08-concat_sample_fna_files'
+include { concatenateSamples }               from './modules/08-concat_sample_fna_files'
+include { concatenateSummaries }             from './modules/08-concat_sample_fna_files'
+include { concatenateAmbiguousReport }       from './modules/08-concat_sample_fna_files'
+include { concatenateIndexAssignmentSummary } from './modules/08-concat_sample_fna_files'
 
 
 
@@ -237,7 +238,7 @@ workflow {
 
     // 8) Join chunk files by sample name and concatenate into final sample files
     allSampleFiles = parseBestDemultiOutput
-        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList ->
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList, summaryFile ->
             return sampleFilesList
         }
         .collect()  // Wait for all chunks to complete
@@ -256,7 +257,7 @@ workflow {
     // 9) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
     //    (tie_both_valid, single_barcode_multi_sample)
     allAmbiguousFastas = parseBestDemultiOutput
-        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList ->
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList, summaryFile ->
             return ambiguousFilesList
         }
         .collect()
@@ -271,12 +272,21 @@ workflow {
 
     // 10) Merge per-chunk ambiguous read TSV reports into a single report
     allTsvReports = parseBestDemultiOutput
-        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList ->
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList, summaryFile ->
             return tsvFile
         }
         .collect()
 
     concatenateAmbiguousReport(allTsvReports)
+
+    // 11) Merge per-chunk index assignment summaries (i5/i7/both counts) into one report
+    allIndexAssignmentSummaries = parseBestDemultiOutput
+        .map { chunkID, sampleFilesList, jsonFile, tsvFile, ambiguousFilesList, summaryFile ->
+            return summaryFile
+        }
+        .collect()
+
+    concatenateIndexAssignmentSummary(allIndexAssignmentSummaries)
 
 }
 
