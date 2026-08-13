@@ -245,8 +245,14 @@ def write_info_into_file(grouped_data, chunkID, output_path):
     with open(f'{output_path}/grouped_data.{chunkID}.json', 'w') as f:
         json.dump(serializable_grouped_data, f, indent=4)
 
-def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, output_path, ambiguous_events):
+def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, output_path, ambiguous_events, rc_suppressed=None):
+    """Write per-sample FASTA files.
 
+    rc_suppressed: optional set of read names that have an RC collision but no
+    unambiguous sample assignment.  These reads are flagged in ambiguous_reads.tsv
+    (by append_rc_collision_ambiguous_events, called before this function) but must
+    not be written to any sample FASTA — they have no quorum.
+    """
     i5_to_sample = {}
     i7_to_sample = {}
 
@@ -259,11 +265,11 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
             i7_to_sample[i7] = []
         i7_to_sample[i7].append(sample)
 
-    per_sample_chunk_output_file = { 
+    per_sample_chunk_output_file = {
         sample:open(f'{output_path}/{sample}.{chunkID}.fna', 'w')
         for sample in exp_des_dict.keys()
     }
-    
+
     try:
         for read in grouped_data:
             i5 = grouped_data[read].i5
@@ -277,7 +283,7 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                 for sample_name, sample_indexes in exp_des_dict.items():
                     if sample_indexes == index_pair:
                         assigned_sample = sample_name
-                
+
             #Case 2: only i5 present
             elif i5 != "" and i7 == "":
                 if len(i5_to_sample[i5]) == 1: #only one sample linked to the index
@@ -301,16 +307,22 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                         f"i7={i7} (no i5 found)",
                         "|".join(i7_to_sample[i7])
                     ))
-            
+
             if assigned_sample:
+                # If this read's only reason to be assigned is an RC-colliding barcode
+                # combination that doesn't unambiguously point to a sample, skip the
+                # FASTA — it is already flagged in ambiguous_reads.tsv.
+                if rc_suppressed and read in rc_suppressed:
+                    print(f"'{read}' suppressed from FASTA: RC collision with no quorum")
+                    continue
                 new_seq = SeqRecord(
-                    reads[read].seq, 
-                    id=reads[read].id, 
+                    reads[read].seq,
+                    id=reads[read].id,
                     description=""
                 )
                 SeqIO.write(new_seq, per_sample_chunk_output_file[assigned_sample], 'fasta')
                 print(f"'{read}' was sucessfully demultiplexed")
-                
+
     finally:
         for file_handle in per_sample_chunk_output_file.values():
             file_handle.close()
@@ -362,7 +374,24 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
         if key not in best or dist < best[key]:
             best[key] = dist
 
+    # Second pass: find the global minimum distance per read across all slots/indexes,
+    # then only report events at that minimum AND within the hard cap.
+    # bin/05 emits all RC collisions with dist <= 3 (same loose threshold as regular
+    # sample assignment).  For RC collision reporting we are stricter: a collision is
+    # only meaningful when the barcode is an exact or near-exact RC mirror (dist <= 1).
+    # Anything above that is not a genuine RC collision risk.
+    RC_COLLISION_MAX_DIST = 1
+
+    read_min_dist = {}
     for (read_name, extraction_slot, colliding_index), dist in best.items():
+        if read_name not in read_min_dist or dist < read_min_dist[read_name]:
+            read_min_dist[read_name] = dist
+
+    for (read_name, extraction_slot, colliding_index), dist in best.items():
+        if dist > read_min_dist[read_name]:
+            continue  # not the closest RC match for this read — skip
+        if dist > RC_COLLISION_MAX_DIST:
+            continue  # closest match is still too far to be a genuine RC collision
         if read_name not in grouped_data:
             continue
         data = grouped_data[read_name]
@@ -432,10 +461,22 @@ if __name__ == "__main__":
     count_inconclusive(mapped_data)
     write_info_into_file(mapped_data, chunkID, args.output)
 
-    write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events)
-
+    # RC collision events must be processed BEFORE writing FASTA files so we can
+    # build the suppressed-read set and pass it to write_fasta_files_per_sample.
     rc_events = load_rc_collision_events(args.rc_collision_events)
     append_rc_collision_ambiguous_events(rc_events, mapped_data, exp_des_dict, ambiguous_events)
+
+    # Reads flagged as rc_collision with no unambiguous sample ("unassigned") should
+    # not be written to any sample FASTA — they have no quorum.
+    rc_suppressed = {
+        event[0]
+        for event in ambiguous_events
+        if event[1] == "rc_collision" and event[3] == "unassigned"
+    }
+    if rc_suppressed:
+        print(f"{len(rc_suppressed)} RC collision reads with no quorum will be suppressed from FASTA output")
+
+    write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events, rc_suppressed)
 
     write_ambiguous_fasta_files(ambiguous_events, reads_dict, chunkID, args.output)
     write_ambiguous_report(ambiguous_events, chunkID, args.output)
