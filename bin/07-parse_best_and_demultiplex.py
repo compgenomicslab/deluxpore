@@ -67,13 +67,37 @@ def create_best_distance_dict(distance_file):
                 info = line.strip().split('\t')
                 query_id = info[0]
                 distances = list(map(int, info[1:]))
-                min_value_index = distances.index(min(distances))
-                min_value = distances[min_value_index]
+                min_val = min(distances)
 
+                if min_val > 3:
+                    continue
+
+                # Collect all columns that tied at the minimum distance.
+                # With slot-restricted matching (bin/05), cross-slot columns are
+                # set to 999, so ties here only occur for same-slot candidates
+                # under normal operation. The cross-slot check below catches the
+                # fallback case where slot could not be determined from the record
+                # ID and all columns were compared (slot = None in bin/05).
+                min_indices = [i for i, d in enumerate(distances) if d == min_val]
+                min_names = [header_list[i + 1] for i in min_indices]
+
+                if len(min_names) > 1:
+                    has_i5 = any(n.startswith('i5') for n in min_names)
+                    has_i7 = any(n.startswith('i7') for n in min_names)
+                    if has_i5 and has_i7:
+                        # Cross-slot tie: the slot could not be determined and
+                        # two different slots match equally well. Slot is
+                        # unresolvable from sequence alone; skip this extraction.
+                        print(f"Cross-slot tie for {query_id}: {min_names} all at distance {min_val}, skipping")
+                        continue
+
+                # Single winner or same-slot tie: take the first minimum.
+                # Same-slot ties within a read are resolved downstream by
+                # parse_best_dictionary_should_update using qstart and valid-combo checks.
+                min_value_index = distances.index(min_val)
                 best_match = header_list[min_value_index + 1]
-                if min_value <= 3:
-                    best[query_id] = [min_value, best_match]
-        return best
+                best[query_id] = [min_val, best_match]
+    return best
 
 
 def parse_best_dictionary_should_update(best_dict, exp_des_dict, ambiguous_events):
