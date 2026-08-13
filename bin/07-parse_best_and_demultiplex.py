@@ -20,8 +20,8 @@ def check_arg(args=None):
     Return
         parser.parse_args() # Parsed arguments
     '''
-    parser = argparse.ArgumentParser(prog='06-extract_best_index.py', formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description='06-extract_best_index.py ')
+    parser = argparse.ArgumentParser(prog='07-parse_best_and_demultiplex.py', formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description='07-parse_best_and_demultiplex.py ')
 
     parser.add_argument('--fasta_reads', '-i', required=True,
                         help='Path to reads file in fasta format')
