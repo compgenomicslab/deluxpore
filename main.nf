@@ -6,6 +6,8 @@ nextflow.enable.dsl=2
  */
 
 params.bin = "scripts"
+params.customCompleteIndexes = null
+params.customUniqueIndexes   = null
 
 /*
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,7 +36,10 @@ def helpMessage() {
       --experimentalDesign   Path to sample-to-index mapping file (TSV)
       --outDir               Output directory
       --libraryIndexSeqs     Illumina index kit used for multiplexing
-                             Accepted values: NEBNext, NEXTERA
+                             Accepted values: NEBNext, NEXTERA, custom
+                             When set to 'custom', also provide:
+                               --customCompleteIndexes  Path to complete index sequences FASTA (adapter + barcode)
+                               --customUniqueIndexes    Path to unique barcode-only index sequences FASTA
 
     Optional parameters:
       --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
@@ -55,10 +60,16 @@ def helpMessage() {
 
     Examples:
       # Using NEBNext indexes
-      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nebnext -params-file params.json
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs NEBNext -params-file params.json
 
       # Using Nextera indexes
-      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs nextera -params-file params.json
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs NEXTERA -params-file params.json
+
+      # Using custom index sequences
+      nextflow run ktlina/deluxpore -profile local,conda --libraryIndexSeqs custom \\
+        --customCompleteIndexes /path/to/complete_indexes.fna \\
+        --customUniqueIndexes /path/to/unique_indexes.fna \\
+        -params-file params.json
 
     """.stripIndent()
 }
@@ -118,7 +129,9 @@ include { removeIlluminaIndexes } from './modules/06-remove_illumina_indexes'
 
 include { parseBestDemulti } from './modules/07-parse_best_and_demultiplex'
 
-include { concatenateSamples } from './modules/08-concat_sample_fna_files'
+include { concatenateSamples }        from './modules/08-concat_sample_fna_files'
+include { concatenateSummaries }      from './modules/08-concat_sample_fna_files'
+include { concatenateAmbiguousReport } from './modules/08-concat_sample_fna_files'
 
 
 
@@ -132,7 +145,22 @@ workflow {
     
     // 0) Generate index files one per demultiplexing experiment
     runIndexFilesInput = Channel.fromPath("${params.experimentalDesign}", type: 'file')
-    runIndexFilesOutput = generateIndexFiles(runIndexFilesInput)
+
+    if (params.libraryIndexSeqs.toLowerCase() == "custom") {
+        if (!params.customCompleteIndexes || !params.customUniqueIndexes) {
+            error "When libraryIndexSeqs is 'custom', you must provide --customCompleteIndexes and --customUniqueIndexes"
+        }
+        indexCompleteFile = file(params.customCompleteIndexes, checkIfExists: true)
+        indexUniqueFile   = file(params.customUniqueIndexes,   checkIfExists: true)
+    } else {
+        indexCompleteFile = file("${projectDir}/assets/${params.libraryIndexSeqs}.complete_indexes.fna", checkIfExists: true)
+        indexUniqueFile   = file("${projectDir}/assets/${params.libraryIndexSeqs}.unique_indexes.fna",   checkIfExists: true)
+    }
+
+    generateIndexFilesInput = runIndexFilesInput.map { expDesign ->
+        tuple(expDesign, indexCompleteFile, indexUniqueFile)
+    }
+    runIndexFilesOutput = generateIndexFiles(generateIndexFilesInput)
 
     read_ch = Channel.fromPath("${params.readsDir}/${params.readsFileExtension}", type: 'file')
     // read_ch = read_ch.map { file ->
@@ -205,7 +233,7 @@ workflow {
 
     // 8) Join chunk files by sample name and concatenate into final sample files
     allSampleFiles = parseBestDemultiOutput
-        .map { chunkID, sampleFilesList, jsonFile ->
+        .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas ->
             return sampleFilesList
         }
         .collect()  // Wait for all chunks to complete
@@ -220,6 +248,26 @@ workflow {
         .groupTuple()
 
     concatenatedSamples = concatenateSamples(allSampleFiles)
+
+    // 9) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
+    allAmbiguousFastas = parseBestDemultiOutput
+        .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas -> ambiguousFastas }
+        .collect()
+        .flatten()
+        .map { file ->
+            def type = file.name.split('\\.')[0]
+            return [type, file]
+        }
+        .groupTuple()
+
+    concatenateSummaries(allAmbiguousFastas)
+
+    // 10) Merge per-chunk ambiguous read TSV reports into a single report
+    allTsvReports = parseBestDemultiOutput
+        .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas -> tsvReport }
+        .collect()
+
+    concatenateAmbiguousReport(allTsvReports)
     
 
 }
