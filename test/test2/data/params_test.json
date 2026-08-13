@@ -1,0 +1,12 @@
+{
+    "projectName": "test2.data",
+    "readsDir": "./nextflow_demultiplex/test/test2/data/trimmed_nano",
+    "readsFileExtension": "*.fastq.gz",
+    "outDir": "./nextflow_demultiplex/test/test2/test2.results",
+    "experimentalDesign": "./nextflow_demultiplex/test/test2/data/test2.sample2indexes.tsv",
+
+    "trimandfilterNanopore": false,
+    "trimmIlluminaIndexes": true,
+    "publishIntermediate": false,
+    "libraryIndexSeqs": "NEBNext"
+}

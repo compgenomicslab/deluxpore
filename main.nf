@@ -45,7 +45,16 @@ def helpMessage() {
       --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
       --nanoQscore             Minimum quality score [default: 20]
       --nanoLength             Minimum read length [default: 100]
-      --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
+      --trimmIlluminaIndexes   Trim Illumina adapter sequences from the ends of demultiplexed reads
+                               [default: false]
+      --removeChimeras         Trim Illumina adapters AND split reads at confident internal adapter
+                               occurrences (chimera detection); implies --trimmIlluminaIndexes
+                               [default: false]
+      --removeChimerasCoverage Minimum fraction of the adapter template an internal alignment
+                               must cover to be treated as a genuine chimeric junction rather
+                               than noise; 0.7 sits in the empty valley between the short
+                               coincidental-match cluster (~0.15-0.20) and the full-length
+                               genuine-chimera cluster (~0.90-1.0) [default: 0.7]
 
     Resource limits:
       --max_cpus             Maximum CPUs to use [default: auto-detected]
@@ -119,19 +128,18 @@ include { transFastqtoFasta } from './modules/01-transform_to_fasta'
 include { createDB } from './modules/02-reads2database'
 include { mapReads2DB } from './modules/02-reads2database'
 
-include { parseBlastOut } from './modules/03-parse_blast_output'
-
 include { extractUniqQueryIndex } from './modules/04-extract_uniq_query_index'
 
 include { calcLevDistance } from './modules/05-calc_lev_distance'
 
-include { removeIlluminaIndexes } from './modules/06-remove_illumina_indexes'
-
 include { parseBestDemulti } from './modules/07-parse_best_and_demultiplex'
 
-include { concatenateSamples }        from './modules/08-concat_sample_fna_files'
-include { concatenateSummaries }      from './modules/08-concat_sample_fna_files'
+include { concatenateSamples }         from './modules/08-concat_sample_fna_files'
+include { concatenateSummaries }       from './modules/08-concat_sample_fna_files'
 include { concatenateAmbiguousReport } from './modules/08-concat_sample_fna_files'
+include { concatenateChimeraReports }  from './modules/08-concat_sample_fna_files'
+
+include { trimAndRemoveChimeras } from './modules/09-trim_and_remove_chimeras'
 
 
 
@@ -188,7 +196,9 @@ workflow {
     // 4) Map fastas to illumina index sequences
     createDBInput = runIndexFilesOutput.map { tuple ->
         return tuple[0]}
-    createDBOutput = createDB(createDBInput)
+    // .first() converts the single-item queue channel to a value channel so it
+    // can be consumed by both mapReads2DB (step 4) and trimAndRemoveChimeras (step 9).
+    createDBOutput = createDB(createDBInput).first()
 
     // Map reads making sure to use fasta formated reads
     mapReads2DBInput = transFastqtoFastaOutput.combine(createDBOutput)
@@ -207,26 +217,11 @@ workflow {
     calcLevDistanceInput = extractUniqQueryIndexOutput.combine(runIndexFilesOutput.map { [it] })
     calcLevDistanceOutput = calcLevDistance(calcLevDistanceInput)
 
-    if (params.trimmIlluminaIndexes) {
-        // 5) Parse BLAST output - only needed for trimming
-        parseBlastOutputInput = transFastqtoFastaOutput.join(mapReads2DBOutput)
-        parseBlastOutOutput = parseBlastOut(parseBlastOutputInput)
-        
-        // Remove Illumina index from Nanopore clean fasta sequences
-        removeIlluminaIndexesInput = transFastqtoFastaOutput
-            .join(parseBlastOutOutput)
-        removeIlluminaIndexesOutput = removeIlluminaIndexes(removeIlluminaIndexesInput)
-
-        // Combine output to distance and index sequences
-        parseBestDemultiInput = removeIlluminaIndexesOutput
-            .join(calcLevDistanceOutput)
-            .combine(runIndexFilesInput)
-    } else {
-        // Instead use complete Nanopore fasta sequences
-        parseBestDemultiInput = transFastqtoFastaOutput
-            .join(calcLevDistanceOutput)
-            .combine(runIndexFilesInput)
-    }
+    // Sample assignment always runs on untrimmed reads.
+    // Illumina-index trimming and chimera splitting happen after demultiplexing (step 09).
+    parseBestDemultiInput = transFastqtoFastaOutput
+        .join(calcLevDistanceOutput)
+        .combine(runIndexFilesInput)
 
     // 7) Parse distance matrix, extract best distance values per read and demultiplex
     parseBestDemultiOutput = parseBestDemulti(parseBestDemultiInput)
@@ -249,7 +244,17 @@ workflow {
 
     concatenatedSamples = concatenateSamples(allSampleFiles)
 
-    // 9) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
+    // 9) Per-sample Illumina-index trimming and chimera splitting
+    //    merge all per-sample chimera reports into one file in ambiguous_reads_report/
+    if (params.trimmIlluminaIndexes || params.removeChimeras) {
+        trimInput = concatenatedSamples
+            .combine(createDBOutput)
+            .combine(Channel.value(indexCompleteFile))
+        trimOutput = trimAndRemoveChimeras(trimInput)
+        concatenateChimeraReports(trimOutput.chimeraReport.collect())
+    }
+
+    // 10) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
     allAmbiguousFastas = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas -> ambiguousFastas }
         .collect()
@@ -262,7 +267,7 @@ workflow {
 
     concatenateSummaries(allAmbiguousFastas)
 
-    // 10) Merge per-chunk ambiguous read TSV reports into a single report
+    // 11) Merge per-chunk ambiguous read TSV reports into a single report
     allTsvReports = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas -> tsvReport }
         .collect()

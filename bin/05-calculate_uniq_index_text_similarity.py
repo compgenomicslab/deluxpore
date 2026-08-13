@@ -35,6 +35,9 @@ def check_arg(args=None):
     parser.add_argument('--output', '-o', required=True,
                         help='Output tsv file with distance matrix')
 
+    parser.add_argument('--rc_collision_output', '-rco', required=True,
+                        help='Output tsv file listing cross-slot near-matches (RC collision candidates)')
+
     return parser.parse_args()
 
 #################
@@ -50,7 +53,7 @@ def parse_fasta(fasta_file):
 
 
 # Function to calculate and print distances of a sequence to each index
-def index_distances(record, uniq_index, uniq_index_rc, index_order):
+def index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision_events):
     distances = {}
     read_name = record.id
     read_seq = str(record.seq)
@@ -71,9 +74,13 @@ def index_distances(record, uniq_index, uniq_index_rc, index_order):
 
     for index in index_order:
         if slot is not None and not index.startswith(slot):
-            # Cross-slot candidate: an i5-position extraction must never be
-            # assigned an i7 index, and vice versa. This is the RC-collision
-            # failure mode where revcomp(sample_A.i5) == sample_B.i7.
+            # Cross-slot candidate excluded. Compute the actual distance anyway
+            # to detect RC collision events (reads where the cross-slot barcode
+            # would have matched with distance ≤ 3 without slot restriction).
+            actual_dist = min(distance(read_seq, uniq_index[index]),
+                              distance(read_seq, uniq_index_rc[index]))
+            if actual_dist <= 3:
+                rc_collision_events.append((read_name, slot, index, actual_dist))
             distances[read_name][index] = 999
             continue
         dist = distance(read_seq, uniq_index[index])
@@ -97,12 +104,19 @@ if __name__ == '__main__':
     index_order = []
     for index in uniq_index:
         index_order.append(index)
-    
+
+    rc_collision_events = []
+
     with open(args.output, 'w') as out_file:
         out_file.write("query_id\t" + "\t".join([i for i in index_order]) + "\n")  # Write header line with index names
-        
+
         # Iterate over each record in the fasta file containing adapters and calculate distances
         for record in SeqIO.parse(args.read_unique_indexes, 'fasta'):
-            distances = index_distances(record, uniq_index, uniq_index_rc, index_order)  # Calculate distances for each sequence
+            distances = index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision_events)
             out_file.write(distances)
+
+    with open(args.rc_collision_output, 'w') as rc_file:
+        rc_file.write("read_id\textraction_slot\tcolliding_index\tactual_distance\n")
+        for event in rc_collision_events:
+            rc_file.write("\t".join(str(x) for x in event) + "\n")
 

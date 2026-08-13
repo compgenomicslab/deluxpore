@@ -9,12 +9,11 @@ process concatenateSamples {
     tuple val(sampleName), path(sampleFiles)
 
     output:
-    tuple val(sampleName), path("${sampleName}*.fna")
+    tuple val(sampleName), path("${sampleName}.fna")
 
     script:
-    def suffix = params.trimmIlluminaIndexes ? ".trimmed.fna" : ".fna"
     """
-    cat ${sampleFiles.join(' ')} > ${sampleName}${suffix}
+    cat ${sampleFiles.join(' ')} > ${sampleName}.fna
     """
 }
 
@@ -34,6 +33,27 @@ process concatenateSummaries {
     script:
     """
     cat ${chunkFastas.join(' ')} > ${ambiguityType}.fna
+    """
+}
+
+process concatenateChimeraReports {
+    label 'fast'
+
+    tag { "${params.projectName}.rconcatenateChimeraReports" }
+
+    publishDir "${params.outDir}/ambiguous_reads_report", mode: 'copy'
+
+    input:
+    path(tsvFiles)
+
+    output:
+    path("chimera_reads.tsv")
+
+    script:
+    """
+    files=(\$(ls *.chimera_report.tsv | sort -V))
+    head -1 "\${files[0]}" > chimera_reads.tsv
+    for f in "\${files[@]}"; do tail -n +2 "\$f"; done >> chimera_reads.tsv
     """
 }
 

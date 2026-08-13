@@ -1,0 +1,16 @@
+{
+    "projectName": "test.data",
+    "readsDir": "./nextflow_demultiplex/test/reads",
+    "readsFileExtension": "*.fastq.gz",
+    "experimentalDesign": "./nextflow_demultiplex/test/test.sample_design.tsv",
+    "outDir": "./nextflow_demultiplex/test/test.results",
+
+    "trimandfilterNanopore": false,
+
+    "trimmIlluminaIndexes": false,
+    "libraryIndexSeqs": "custom",
+    "customCompleteIndexes": "/home/acatalina/PHD/run_nextflow_demultiplex/nextflow_demultiplex/assets/NEBNext.complete_indexes.fna",
+    "customUniqueIndexes": "/home/acatalina/PHD/run_nextflow_demultiplex/nextflow_demultiplex/assets/NEBNext.unique_indexes.fna",
+
+    "publishIntermediate": false
+}

@@ -9,7 +9,7 @@ process parseBestDemulti {
         saveAs: { it.replace("07-parse_best_and_demultiplex_per_chunk/", "") }
 
     input:
-    tuple val(chunkID), path(readFileFasta), path(levDistMat), path(expDesFile)
+    tuple val(chunkID), path(readFileFasta), path(levDistMat), path(rcCollisionEvents), path(expDesFile)
 
     output:
     tuple val(chunkID), path ("07-parse_best_and_demultiplex_per_chunk/*.fna"), path ("07-parse_best_and_demultiplex_per_chunk/*.json"), path ("07-parse_best_and_demultiplex_per_chunk/*.tsv"), path ("07-parse_best_and_demultiplex_per_chunk/ambiguous/*.fna")
@@ -23,6 +23,7 @@ process parseBestDemulti {
     07-parse_best_and_demultiplex.py \
     -i  ${readFileFasta} \
     -id ${levDistMat} \
+    -rc ${rcCollisionEvents} \
     -ed ${expDesFile} \
     -o "07-parse_best_and_demultiplex_per_chunk"
 

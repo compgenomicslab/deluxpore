@@ -35,6 +35,9 @@ def check_arg(args=None):
     parser.add_argument('--output', '-o', required=True,
                         help='Output path for files')
 
+    parser.add_argument('--rc_collision_events', '-rc', required=True,
+                        help='Path to RC collision events TSV from bin/05')
+
     return parser.parse_args()
 
 #################
@@ -314,6 +317,43 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
 
 
 
+def load_rc_collision_events(rc_collision_file):
+    events = []
+    with open(rc_collision_file, 'r') as f:
+        next(f)  # skip header
+        for line in f:
+            parts = line.strip().split('\t')
+            if len(parts) == 4:
+                events.append(parts)  # [read_id, extraction_slot, colliding_index, actual_distance]
+    return events
+
+def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_des_dict, ambiguous_events):
+    # For each RC collision event where the read was actually assigned, add a
+    # reporting entry. The read is NOT excluded — it already went to its correct
+    # sample. This entry exists only so users can inspect RC collision cases.
+    idx_to_samples = {}
+    for sample, (i5, i7) in exp_des_dict.items():
+        for idx in (i5, i7):
+            idx_to_samples.setdefault(idx, []).append(sample)
+
+    seen = set()
+    for read_id, extraction_slot, colliding_index, actual_distance in rc_collision_events:
+        if read_id in seen:
+            continue
+        seen.add(read_id)
+        if read_id not in grouped_data:
+            continue
+        data = grouped_data[read_id]
+        assigned_i5, assigned_i7 = data.i5, data.i7
+        if not assigned_i5 and not assigned_i7:
+            continue  # read was not assigned at all; skip
+        colliding_samples = idx_to_samples.get(colliding_index, ['unknown'])
+        ambiguous_events.append((
+            read_id, "rc_collision",
+            f"assigned={assigned_i5}+{assigned_i7} | rc_match={colliding_index}(dist={actual_distance},slot={extraction_slot})",
+            "|".join(colliding_samples)
+        ))
+
 def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
     ambiguous_dir = f'{output_path}/ambiguous'
     os.makedirs(ambiguous_dir, exist_ok=True)
@@ -321,6 +361,7 @@ def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
     handlers = {
         'tie_both_valid':              open(f'{ambiguous_dir}/tie_both_valid.{chunkID}.fna', 'w'),
         'single_barcode_multi_sample': open(f'{ambiguous_dir}/single_barcode_multi_sample.{chunkID}.fna', 'w'),
+        'rc_collision':                open(f'{ambiguous_dir}/rc_collision.{chunkID}.fna', 'w'),
     }
     try:
         for read_id, ambiguity_type, _, _ in ambiguous_events:
@@ -346,11 +387,8 @@ if __name__ == "__main__":
 
     distance_table = args.index_distance_table
     clean_reads_file = args.fasta_reads
-    # chunkID = (os.path.splitext(os.path.basename(distance_table))[0]).split(".")[0]
     chunkID = os.path.basename(distance_table).replace(".distance_matrix.tsv", "")
 
-    # with open(clean_reads_file, 'r') as reads_file:
-    #     reads_dict = SeqIO.to_dict(SeqIO.parse(reads_file, 'fasta'))
     reads_dict = SeqIO.index(clean_reads_file, 'fasta')
 
     exp_des_dict = parse_exp_design(args.experimental_design)
@@ -361,6 +399,10 @@ if __name__ == "__main__":
     write_info_into_file(mapped_data, chunkID, args.output)
 
     write_fasta_files_per_sample(mapped_data, chunkID, exp_des_dict, reads_dict, args.output, ambiguous_events)
+
+    rc_events = load_rc_collision_events(args.rc_collision_events)
+    append_rc_collision_ambiguous_events(rc_events, mapped_data, exp_des_dict, ambiguous_events)
+
     write_ambiguous_fasta_files(ambiguous_events, reads_dict, chunkID, args.output)
     write_ambiguous_report(ambiguous_events, chunkID, args.output)
 

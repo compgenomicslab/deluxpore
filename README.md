@@ -11,6 +11,7 @@
 * [Simple Usage](#simple-usage)
 * [Full Usage](#full-usage)
 * [Custom Index Sequences](#custom-indexes)
+* [Post-demultiplexing Trimming and Chimera Removal](#trimming)
 * [Ambiguous Read Assignments](#ambiguous-reads)
 * [Acknowledgements](#acknowledgements)
 
@@ -111,7 +112,15 @@ Optional parameters:
   --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
   --nanoQscore             Minimum quality score [default: 20]
   --nanoLength             Minimum read length [default: 100]
-  --trimmIlluminaIndexes   Trim Illumina index sequences [default: false]
+  --trimmIlluminaIndexes   Trim Illumina adapter sequences from demultiplexed reads.
+                           Trimming runs per-sample after demultiplexing; also enables
+                           chimera detection (see --removeChimeras) [default: false]
+  --removeChimeras         Split reads at confident internal adapter occurrences
+                           (chimera detection) instead of leaving them uncorrected [default: false]
+  --removeChimerasCoverage Minimum fraction of the adapter template an internal alignment
+                           must cover to be treated as a genuine chimeric junction rather
+                           than noise; 0.7 sits in the valley between coincidental short
+                           matches (~0.15-0.20) and genuine chimeras (~0.90-1.0) [default: 0.7]
 
 Resource limits:
   --max_cpus             Maximum CPUs to use [default: auto-detected]
@@ -155,17 +164,52 @@ The sequence IDs in these files must match the index names used in the `experime
 
 Example params file for custom indexes: `examples/params_file_custom_indexes.json`
 
+<a name="trimming"></a>
+## Post-demultiplexing Trimming and Chimera Removal
+
+When `--trimmIlluminaIndexes` is enabled, deluxpore runs a per-sample trimming and (optionally) chimera-splitting step **after** demultiplexing. This design is intentional: barcode assignment uses the full, untrimmed reads (giving BLAST the most signal), and trimming is applied only once reads are correctly sorted into per-sample files.
+
+### What gets trimmed
+
+For each demultiplexed FASTA, the pipeline runs `blastn` against the same complete-adapter BLAST database used during demultiplexing, then applies terminal trimming:
+
+- **Start-terminal** hits (adapter alignment ending within the first 73 bp) — the adapter and everything before it are removed.
+- **End-terminal** hits (adapter alignment starting within the last 73 bp) — the adapter and everything after it are removed.
+
+### Chimera detection (`--removeChimeras`)
+
+Some ONT reads contain internal Illumina adapter sequences from accidental ligation during library preparation (chimeric reads). With `--removeChimeras true`, internal BLAST hits whose alignment covers at least `--removeChimerasCoverage` of the adapter template are treated as genuine chimeric junctions: the read is split at each junction into separate fragments.
+
+Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged chimera report across all samples is written to:
+```
+{outDir}/ambiguous_reads_report/chimera_reads.tsv
+```
+
+| Column | Description |
+|--------|-------------|
+| `original_read_id` | Read ID before splitting |
+| `num_fragments` | Number of fragments produced (1 = detected but not split) |
+| `fragment_id` | Fragment ID (`_frag1`, `_frag2`, …), or same as `original_read_id` when not split |
+| `fragment_start` | Start position in the original read (0-based) |
+| `fragment_end` | End position in the original read (0-based exclusive) |
+| `junction_coverage` | Fraction of the adapter template covered by the best chimeric junction hit |
+| `chimera_split` | `yes` if the read was split; `no` if detected but `--removeChimeras` was false |
+
+> [!NOTE]
+> Setting `--removeChimerasCoverage` too low risks splitting reads at coincidental short adapter matches. The default of 0.7 was chosen based on the bimodal distribution of internal alignment coverage in ONT UCE libraries, where noise clusters below ~0.2 and genuine chimeras cluster above ~0.9.
+
 <a name="ambiguous-reads"></a>
 ## Ambiguous Read Assignments
 
-During demultiplexing, some reads cannot be unambiguously assigned to a sample. This can happen when:
+During demultiplexing, some reads cannot be unambiguously assigned to a sample, or are assigned correctly but flagged for inspection. Three situations are reported:
 
 - **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. The read is excluded from all sample files to avoid misassignment.
 - **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design.
+- **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is the reverse complement of a barcode in the opposite slot used by a different sample. The read is still assigned to the correct sample (slot-restricted matching prevents cross-assignment), but it is flagged here so you can inspect whether the collision affected assignment confidence.
 
-After each run, deluxpore writes a per-chunk report to:
+After each run, deluxpore writes a merged report to:
 ```
-{outDir}/ambiguous_reads_report/ambiguous_reads.{chunkID}.tsv
+{outDir}/ambiguous_reads_report/ambiguous_reads.tsv
 ```
 
 The TSV has four columns:
@@ -173,11 +217,14 @@ The TSV has four columns:
 | Column | Description |
 |--------|-------------|
 | `read_id` | Nanopore read identifier |
-| `ambiguity_type` | `tie_both_valid` or `single_barcode_multi_sample` |
+| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, or `rc_collision` |
 | `barcode_info` | The barcode combination(s) involved |
 | `possible_samples` | Pipe-separated list of sample names the read could belong to |
 
 Use this report to identify which samples are affected by barcode collisions and verify whether the ambiguous reads are consistent with your plate layout.
+
+> [!NOTE]
+> `rc_collision` reads **are assigned** to the correct sample — they appear in both their sample FASTA and the report. Reads in the `tie_both_valid` and `single_barcode_multi_sample` categories are **excluded** from sample files entirely.
 
 <a name="acknowledgements"></a>
 ## Acknowledgements
