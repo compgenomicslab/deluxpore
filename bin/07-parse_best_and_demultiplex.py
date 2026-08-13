@@ -318,40 +318,75 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
 
 
 def load_rc_collision_events(rc_collision_file):
+    """Return list of (read_name, extraction_slot, colliding_index, actual_distance).
+
+    The query_id in the TSV is the full bin/04 record ID:
+    '{read_name}.{subject_id}.{alignment_info}' — we extract just the read_name
+    (first dot-separated field) so it matches the keys in grouped_data.
+    """
     events = []
     with open(rc_collision_file, 'r') as f:
         next(f)  # skip header
         for line in f:
             parts = line.strip().split('\t')
             if len(parts) == 4:
-                events.append(parts)  # [read_id, extraction_slot, colliding_index, actual_distance]
+                query_id, extraction_slot, colliding_index, actual_distance = parts
+                read_name = query_id.split('.')[0]
+                events.append((read_name, extraction_slot, colliding_index, actual_distance))
     return events
 
+
 def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_des_dict, ambiguous_events):
-    # For each RC collision event where the read was actually assigned, add a
-    # reporting entry. The read is NOT excluded — it already went to its correct
-    # sample. This entry exists only so users can inspect RC collision cases.
+    """Add one ambiguous_events row per unique (read, colliding_index) pair.
+
+    The rc_collision_events TSV can have many rows for the same read because bin/05
+    records one entry per BLAST alignment position × colliding index.  We deduplicate
+    on (read_name, colliding_index) so each distinct collision type appears exactly
+    once per read, keeping the best (lowest) distance observed across all alignments.
+
+    RC collision reads are still correctly assigned to their sample (slot-restricted
+    matching in bin/05 prevents cross-slot confusion); this just flags them so users
+    can inspect the cases in ambiguous_reads.tsv.
+    """
     idx_to_samples = {}
-    for sample, (i5, i7) in exp_des_dict.items():
+    for sample, idxs in exp_des_dict.items():
+        i5, i7 = idxs[0], idxs[1]
         for idx in (i5, i7):
             idx_to_samples.setdefault(idx, []).append(sample)
 
-    seen = set()
-    for read_id, extraction_slot, colliding_index, actual_distance in rc_collision_events:
-        if read_id in seen:
+    # Deduplicate: keep best (lowest) distance per (read_name, extraction_slot, colliding_index)
+    best = {}  # (read_name, extraction_slot, colliding_index) -> int(actual_distance)
+    for read_name, extraction_slot, colliding_index, actual_distance in rc_collision_events:
+        key = (read_name, extraction_slot, colliding_index)
+        dist = int(actual_distance)
+        if key not in best or dist < best[key]:
+            best[key] = dist
+
+    for (read_name, extraction_slot, colliding_index), dist in best.items():
+        if read_name not in grouped_data:
             continue
-        seen.add(read_id)
-        if read_id not in grouped_data:
-            continue
-        data = grouped_data[read_id]
+        data = grouped_data[read_name]
         assigned_i5, assigned_i7 = data.i5, data.i7
         if not assigned_i5 and not assigned_i7:
             continue  # read was not assigned at all; skip
-        colliding_samples = idx_to_samples.get(colliding_index, ['unknown'])
+
+        # Determine which sample this read was assigned to
+        if assigned_i5 and assigned_i7:
+            assigned_sample = next(
+                (s for s, idxs in exp_des_dict.items() if idxs == [assigned_i5, assigned_i7]),
+                "unassigned"
+            )
+        elif assigned_i5:
+            matches = [s for s, idxs in exp_des_dict.items() if idxs[0] == assigned_i5]
+            assigned_sample = matches[0] if len(matches) == 1 else "unassigned"
+        else:
+            matches = [s for s, idxs in exp_des_dict.items() if idxs[1] == assigned_i7]
+            assigned_sample = matches[0] if len(matches) == 1 else "unassigned"
+
         ambiguous_events.append((
-            read_id, "rc_collision",
-            f"assigned={assigned_i5}+{assigned_i7} | rc_match={colliding_index}(dist={actual_distance},slot={extraction_slot})",
-            "|".join(colliding_samples)
+            read_name, "rc_collision",
+            f"{extraction_slot}_extracted; RC_matches_{colliding_index} (dist={dist})",
+            assigned_sample
         ))
 
 def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
@@ -361,7 +396,6 @@ def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
     handlers = {
         'tie_both_valid':              open(f'{ambiguous_dir}/tie_both_valid.{chunkID}.fna', 'w'),
         'single_barcode_multi_sample': open(f'{ambiguous_dir}/single_barcode_multi_sample.{chunkID}.fna', 'w'),
-        'rc_collision':                open(f'{ambiguous_dir}/rc_collision.{chunkID}.fna', 'w'),
     }
     try:
         for read_id, ambiguity_type, _, _ in ambiguous_events:
