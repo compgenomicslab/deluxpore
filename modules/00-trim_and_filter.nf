@@ -5,7 +5,7 @@ process removeNanoporeIndexes {
 
     tag { "${params.projectName}.rRemoveNanoIndexes.${chunkID}" }
 
-    publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true'
+    publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true', enabled: params.publishIntermediate
 
     input:
     tuple val(chunkID), path(readFile)
@@ -31,7 +31,7 @@ process filterNanoporeReads {
 
     tag { "${params.projectName}.rFilterNanoReads.${chunkID}" }
 
-    publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true'
+    publishDir "${params.outDir}/00-trim_and_filter_nanopore", mode: 'copy', overwrite: 'true', enabled: params.publishIntermediate
     input:
     tuple val(chunkID), path(trimmedFile)
 

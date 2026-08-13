@@ -255,10 +255,12 @@ workflow {
     }
 
     // 10) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
+    //     rc_collision reads are reported in ambiguous_reads.tsv only — no FASTA needed
     allAmbiguousFastas = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas -> ambiguousFastas }
         .collect()
         .flatten()
+        .filter { file -> !file.name.startsWith('rc_collision') }
         .map { file ->
             def type = file.name.split('\\.')[0]
             return [type, file]
