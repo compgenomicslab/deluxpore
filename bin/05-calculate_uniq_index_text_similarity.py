@@ -56,7 +56,27 @@ def index_distances(record, uniq_index, uniq_index_rc, index_order):
     read_seq = str(record.seq)
     distances[read_name] = {}
 
+    # bin/04 embeds the adapter-alignment subject_id in the record ID as
+    # "{query_id}.{subject_id}.{alignment_info}". subject_id tells us which
+    # slot (i5-adjacent or i7-adjacent adapter position) this candidate was
+    # physically extracted from, independently of barcode sequence content.
+    id_parts = read_name.split('.')
+    subject_id = id_parts[1] if len(id_parts) >= 2 else None
+    if subject_id and subject_id.startswith('i5'):
+        slot = 'i5'
+    elif subject_id and subject_id.startswith('i7'):
+        slot = 'i7'
+    else:
+        slot = None  # unknown / malformed ID -- fall back to comparing all
+
     for index in index_order:
+        if slot is not None and not index.startswith(slot):
+            # Cross-slot candidate excluded: a candidate physically extracted
+            # from the i7 adapter position can only ever be a genuine i7
+            # barcode, so comparing it against i5 barcodes (or vice versa)
+            # only risks a spurious cross-slot match winning by coincidence.
+            distances[read_name][index] = 999
+            continue
         dist = distance(read_seq, uniq_index[index])  # Distance to forward index
         dist_rc = distance(read_seq, uniq_index_rc[index])  # Distance to reverse complement index
         distances[read_name][index] = min(dist, dist_rc)  # Store the minimum of the two distances
