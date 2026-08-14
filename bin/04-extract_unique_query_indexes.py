@@ -66,8 +66,8 @@ def determine_index_positions(complete_indexes_fna, unique_indexes_fna):
     adapter+barcode sequence, for this project's index kit.
 
     Adapter chemistry places the barcode at a fixed offset for every index
-    within a given slot (i5/i7) of a kit, but that offset -- and the barcode
-    length -- differs between kits (NEBNext vs NEXTERA vs custom). Rather
+    within a given slot (i5/i7) of a kit, but that offset, and the barcode
+    length, differs between kits (NEBNext vs NEXTERA vs custom). Rather
     than hardcoding a single kit's positions, this locates the unique
     barcode as an exact substring of its complete sequence (matched by
     index ID) for every index, and uses the (start, length) pair shared by
