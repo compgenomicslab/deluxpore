@@ -98,8 +98,8 @@ process concatenateIndexAssignmentSummary {
     head -1 "\${files[0]}" > index_assignment_summary.tsv
     for f in "\${files[@]}"; do tail -n +2 "\$f"; done >> index_assignment_summary.tsv
 
-    awk -F'\\t' '{both+=\$2;i5+=\$3;i7+=\$4;un+=\$5;tot+=\$6} \
-        END{print "TOTAL\\t"both"\\t"i5"\\t"i7"\\t"un"\\t"tot}' \
+    awk -F'\\t' '{both+=\$2;i5+=\$3;i7+=\$4;un+=\$5;nbm+=\$6;tot+=\$7} \
+        END{print "TOTAL\\t"both"\\t"i5"\\t"i7"\\t"un"\\t"nbm"\\t"tot}' \
         <(tail -n +2 index_assignment_summary.tsv) >> index_assignment_summary.tsv
     """
 }

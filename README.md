@@ -212,11 +212,12 @@ Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged chimera report acros
 <a name="ambiguous-reads"></a>
 ## Ambiguous Read Assignments
 
-During demultiplexing, some reads cannot be unambiguously assigned to a sample, or are assigned correctly but flagged for inspection. Four situations are reported:
+During demultiplexing, some reads cannot be unambiguously assigned to a sample, or are assigned correctly but flagged for inspection. Five situations are reported:
 
 - **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. Unresolvable; always excluded.
 - **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design. Unresolvable; always excluded.
 - **`invalid_index_pair`** — Both i5 and i7 were detected confidently, but the combination doesn't match any sample in your experimental design (e.g. index hopping, a chimeric read). Always excluded.
+- **`no_barcode_match`** — bin/04 extracted *something* from this read, but nothing came within `MAX_BARCODE_MATCH_DIST` of any catalog barcode in either slot (see [Barcode matching threshold](#barcode-threshold) below). `barcode_info` notes the closest distance actually found, so you can tell this apart from a read where no adapter was detected at all. Always excluded.
 - **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is a near-exact reverse complement of a barcode used by a different sample. See [RC collision handling](#rc-collision) below — whether it's kept or excluded depends on whether a second barcode corroborates the assignment.
 
 After each run, deluxpore writes a merged report to:
@@ -229,13 +230,16 @@ The TSV has five columns:
 | Column | Description |
 |--------|-------------|
 | `read_id` | Nanopore read identifier |
-| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `invalid_index_pair`, or `rc_collision` |
-| `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance (for `rc_collision`); the mismatched i5+i7 combination (for `invalid_index_pair`); etc. |
+| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `invalid_index_pair`, `no_barcode_match`, or `rc_collision` |
+| `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance (for `rc_collision`); the mismatched i5+i7 combination (for `invalid_index_pair`); the closest distance found (for `no_barcode_match`); etc. |
 | `possible_samples` | Sample the read was assigned to (or would have been assigned to, for excluded reads) |
 | `decision` | `included` (kept in its sample FASTA) or `excluded` (withheld from all sample FASTAs) |
 
 Use this report to identify which samples are affected by barcode collisions and verify whether the ambiguous reads are consistent with your plate layout.
 
+`{outDir}/ambiguous_reads_report/index_assignment_summary.tsv` gives the same picture as one-line-per-chunk counts (`both`/`i5_only`/`i7_only`/`unassigned`/`no_barcode_match`/`total_reads`) — `total_reads` there is the *entire* population entering barcode matching (i.e. everything that survived Nanopore quality/length filtering), so every read is accounted for in one place: `total_reads = both + i5_only + i7_only + unassigned + no_barcode_match`.
+
+<a name="barcode-threshold"></a>
 ### Barcode matching threshold
 
 A read's extracted i5/i7 barcode is only accepted as a match if its Levenshtein distance to the closest catalog barcode is `<= MAX_BARCODE_MATCH_DIST` (currently `2`, set in `bin/07-parse_best_and_demultiplex.py`). This threshold was tuned empirically, not guessed: on real data, most `invalid_index_pair` reads (both barcodes "matched," but to a combination no sample uses) turned out to sit right at the edge of a looser cutoff — i.e. noisy, low-confidence matches rather than confidently-read barcodes that genuinely disagree.
