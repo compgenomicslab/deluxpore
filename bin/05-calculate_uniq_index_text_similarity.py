@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from collections import defaultdict
 from Bio import SeqIO
 from Levenshtein import distance
 
@@ -52,8 +53,24 @@ def parse_fasta(fasta_file):
     return head2seqs
 
 
+def build_read_extracted_indexes(read_unique_indexes_fna):
+    """Map read_name -> set of index names bin/04 actually extracted a
+    candidate for (any slot). bin/04 only extracts a candidate when a BLAST
+    hit clears its length/coverage checks (>=20bp aligned to the complete
+    template, full unique-region coverage) -- so an index appearing here has
+    real alignment support behind it, not just an 8bp string coincidence.
+    Used to distinguish genuine RC collisions from ones with no underlying
+    BLAST evidence at all."""
+    read_indexes = defaultdict(set)
+    for record in SeqIO.parse(read_unique_indexes_fna, 'fasta'):
+        parts = record.id.split('.')
+        if len(parts) >= 2:
+            read_indexes[parts[0]].add(parts[1])
+    return read_indexes
+
+
 # Function to calculate and print distances of a sequence to each index
-def index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision_events):
+def index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision_events, read_extracted_indexes):
     distances = {}
     read_name = record.id
     read_seq = str(record.seq)
@@ -64,6 +81,7 @@ def index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision
     # this extraction came from the i5-adjacent or i7-adjacent adapter position,
     # independently of barcode sequence content or sequencing strand.
     id_parts = read_name.split('.')
+    read_id_only = id_parts[0]
     subject_id = id_parts[1] if len(id_parts) >= 2 else None
     if subject_id and subject_id.startswith('i5'):
         slot = 'i5'
@@ -74,12 +92,16 @@ def index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision
 
     for index in index_order:
         if slot is not None and not index.startswith(slot):
-            # Cross-slot candidate excluded. Compute the actual distance anyway
-            # to detect RC collision events (reads where the cross-slot barcode
-            # would have matched with distance ≤ 3 without slot restriction).
+            # Cross-slot candidate excluded from same-slot matching. Compute the
+            # actual distance anyway to detect RC collision events -- but only
+            # report one if this same read also has a genuine BLAST-backed
+            # extraction for the colliding index (see build_read_extracted_indexes).
+            # Without that, an 8bp string match against the catalog alone is not
+            # real evidence of ambiguity: it means no alignment ever supported the
+            # colliding index for this read in the first place.
             actual_dist = min(distance(read_seq, uniq_index[index]),
                               distance(read_seq, uniq_index_rc[index]))
-            if actual_dist <= 3:
+            if actual_dist <= 3 and index in read_extracted_indexes.get(read_id_only, ()):
                 rc_collision_events.append((read_name, slot, index, actual_dist))
             distances[read_name][index] = 999
             continue
@@ -106,13 +128,14 @@ if __name__ == '__main__':
         index_order.append(index)
 
     rc_collision_events = []
+    read_extracted_indexes = build_read_extracted_indexes(args.read_unique_indexes)
 
     with open(args.output, 'w') as out_file:
         out_file.write("query_id\t" + "\t".join([i for i in index_order]) + "\n")  # Write header line with index names
 
         # Iterate over each record in the fasta file containing adapters and calculate distances
         for record in SeqIO.parse(args.read_unique_indexes, 'fasta'):
-            distances = index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision_events)
+            distances = index_distances(record, uniq_index, uniq_index_rc, index_order, rc_collision_events, read_extracted_indexes)
             out_file.write(distances)
 
     with open(args.rc_collision_output, 'w') as rc_file:

@@ -214,43 +214,57 @@ Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged chimera report acros
 
 During demultiplexing, some reads cannot be unambiguously assigned to a sample, or are assigned correctly but flagged for inspection. Four situations are reported:
 
-- **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. The read is excluded from all sample files to avoid misassignment.
-- **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design.
-- **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is the near-exact reverse complement of a barcode used by a different sample, but the distance was above the `--rcCollisionWithholdDist` threshold. The read is still written to its assigned sample file (slot-restricted matching prevents cross-assignment), but it is flagged here so you can inspect whether the collision affected assignment confidence.
-- **`rc_collision_excluded`** — Same as `rc_collision`, but the best RC collision distance was within the `--rcCollisionWithholdDist` threshold, so the read has been **excluded** from all sample files. The `possible_samples` column shows which sample it would have been assigned to. By default (`--rcCollisionWithholdDist 0`), this covers exact RC-mirror matches (dist=0).
+- **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. Unresolvable; always excluded.
+- **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design. Unresolvable; always excluded.
+- **`invalid_index_pair`** — Both i5 and i7 were detected confidently, but the combination doesn't match any sample in your experimental design (e.g. index hopping, a chimeric read). Always excluded.
+- **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is a near-exact reverse complement of a barcode used by a different sample. See [RC collision handling](#rc-collision) below — whether it's kept or excluded depends on whether a second barcode corroborates the assignment.
 
 After each run, deluxpore writes a merged report to:
 ```
 {outDir}/ambiguous_reads_report/ambiguous_reads.tsv
 ```
 
-The TSV has four columns:
+The TSV has five columns:
 
 | Column | Description |
 |--------|-------------|
 | `read_id` | Nanopore read identifier |
-| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `rc_collision`, or `rc_collision_excluded` |
-| `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance |
-| `possible_samples` | Sample the read was assigned to (or would have been assigned to if excluded) |
+| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `invalid_index_pair`, or `rc_collision` |
+| `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance (for `rc_collision`); the mismatched i5+i7 combination (for `invalid_index_pair`); etc. |
+| `possible_samples` | Sample the read was assigned to (or would have been assigned to, for excluded reads) |
+| `decision` | `included` (kept in its sample FASTA) or `excluded` (withheld from all sample FASTAs) |
 
 Use this report to identify which samples are affected by barcode collisions and verify whether the ambiguous reads are consistent with your plate layout.
 
-### RC collision exclusion
+### Barcode matching threshold
+
+A read's extracted i5/i7 barcode is only accepted as a match if its Levenshtein distance to the closest catalog barcode is `<= MAX_BARCODE_MATCH_DIST` (currently `2`, set in `bin/07-parse_best_and_demultiplex.py`). This threshold was tuned empirically, not guessed: on real data, most `invalid_index_pair` reads (both barcodes "matched," but to a combination no sample uses) turned out to sit right at the edge of a looser cutoff — i.e. noisy, low-confidence matches rather than confidently-read barcodes that genuinely disagree.
+
+| threshold | reads with any match | genuine `both`/`i5_only`/`i7_only` | `invalid_index_pair` (noise) |
+|---|---|---|---|
+| `<=3` | 503 | 280 | 223 (44%) |
+| `<=2` (current) | 483 | 414 | 69 (14%) |
+| `<=1` | 251 | 240 | 11 (4%) |
+| `<=0` (exact only) | 233 | 223 | 10 (4%) |
+
+`<=2` was chosen as the best trade-off: it drops only ~4% of total reads relative to `<=3`, while cutting noise-driven `invalid_index_pair` reads by more than two-thirds. `<=1` is more aggressive — closer to noise-free, but at the cost of roughly half your reads. If your data has a different error profile, re-running this sweep against your own `distance_matrix.tsv` (grouping reads by `create_best_distance_dict`'s output at a few candidate thresholds) is worth doing before trusting `2` as a universal default.
+
+<a name="rc-collision"></a>
+### RC collision handling
 
 Some index kits contain pairs whose i5 and i7 barcodes are reverse complements of each other (e.g. sample A's i5 = RC of sample B's i7). This means a read from sample A sequenced in reverse-complement orientation presents barcodes that are indistinguishable from sample B.
 
-Only near-exact collisions are ever considered in the first place — a read's best cross-slot RC distance has to be <= 1 (hardcoded) before it is reported at all, since anything looser is far more likely to be ordinary ONT basecalling noise on an 8bp barcode than a genuine collision. `--rcCollisionWithholdDist` then controls what happens to those reports:
+An `rc_collision` is only ever reported when two conditions both hold:
+1. The candidate's edit distance to the colliding, wrong-slot barcode is <= 1 (looser matches are far more likely to be ordinary ONT basecalling noise on an 8bp barcode than a genuine collision).
+2. That colliding index also has its own genuine BLAST-supported extraction on the *same read* — i.e. there's real alignment evidence for it, not just an 8bp string coincidence discovered by comparing the extracted barcode against the full catalog. A read whose only "evidence" for the colliding index is a low-significance stray BLAST hit (or none at all) never gets flagged in the first place.
 
-- **`0` (default)** — exclude only exact RC mirrors (dist=0) from the sample FASTA. An 8bp barcode matching a *different*, wrong-slot index with zero edits is not plausible sequencing noise, so it's treated as a genuine collision and dropped; dist=1 collisions are flagged (`rc_collision`) but left in place, since those are plausibly just sequencing error.
-- **`-1`** — never exclude; assign and flag both dist=0 and dist=1 collisions but leave every read in its sample file.
-- **`1`** — exclude both dist=0 and dist=1 collisions.
+Once flagged, `decision` is determined as follows:
 
-> [!NOTE]
-> **Written to sample file?**
-> - `tie_both_valid` → ❌ excluded
-> - `single_barcode_multi_sample` → ❌ excluded
-> - `rc_collision` → ✅ written to assigned sample
-> - `rc_collision_excluded` → ❌ excluded (whenever the collision distance is <= `--rcCollisionWithholdDist`, and `--rcCollisionWithholdDist >= 0`)
+- **Dual-confirmed (always `included`)** — if the read's i5 *and* i7 independently confirm a valid, real sample pair, the collision is noted (`barcode_info` includes `dual_confirmed`) but the read is always kept. The slot itself (i5 vs i7) is established by BLAST-aligning ~60bp of adapter backbone, not the 8bp barcode, so an 8bp cross-slot coincidence doesn't undermine a match that a second, independently-extracted barcode already corroborates.
+- **Single-barcode assignments** — no second barcode to corroborate, so `--rcCollisionWithholdDist` controls the outcome:
+  - **`0` (default)** — `excluded` for exact RC mirrors (dist=0); `included` (flagged only) for dist=1, since those are plausibly just sequencing error.
+  - **`-1`** — always `included`; flag but never exclude.
+  - **`1`** — `excluded` for both dist=0 and dist=1.
 
 <a name="acknowledgements"></a>
 ## Acknowledgements

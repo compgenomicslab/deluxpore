@@ -65,6 +65,16 @@ def parse_exp_design(file_path):
 def validate_index_pairs(exp_des_dict, index_pair):
     return index_pair in exp_des_dict.values()
 
+# Maximum accepted Levenshtein distance for a same-slot barcode match (8bp
+# barcodes). At <=3, ~44% of matched reads turned out to be invalid_index_pair
+# noise -- borderline dist-2/3 matches on one or both slots, not confident
+# barcode reads. <=2 cuts that to ~14% while only losing ~4% of total reads
+# (measured on real data); <=1 goes further (~4% invalid pairs) at the cost of
+# losing about half the reads. <=2 is the current best noise-vs-coverage
+# trade-off found.
+MAX_BARCODE_MATCH_DIST = 2
+
+
 def create_best_distance_dict(distance_file):
     best = defaultdict(list)
     with open(distance_file, 'r') as tsv:
@@ -79,7 +89,7 @@ def create_best_distance_dict(distance_file):
                 distances = list(map(int, info[1:]))
                 min_val = min(distances)
 
-                if min_val > 3:
+                if min_val > MAX_BARCODE_MATCH_DIST:
                     continue
 
                 # Collect all columns that tied at the minimum distance.
@@ -166,7 +176,8 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict, ambiguous_event
                         ambiguous_events.append((
                             read_name, "tie_both_valid",
                             f"i5={current.i5}+i7={current.i7} OR i5={index_name}+i7={current.i7}",
-                            f"{current_sample}|{new_sample}"
+                            f"{current_sample}|{new_sample}",
+                            "excluded"
                         ))
 
 
@@ -220,7 +231,8 @@ def parse_best_dictionary_should_update(best_dict, exp_des_dict, ambiguous_event
                         ambiguous_events.append((
                             read_name, "tie_both_valid",
                             f"i5={current.i5}+i7={current.i7} OR i5={current.i5}+i7={index_name}",
-                            f"{current_sample}|{new_sample}"
+                            f"{current_sample}|{new_sample}",
+                            "excluded"
                         ))
 
             if should_update:
@@ -304,6 +316,19 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                         assigned_sample = sample_name
                         assignment_path = "both"
 
+                if not assigned_sample:
+                    # Both barcodes matched confidently, but not to any real sample
+                    # pair -- e.g. index hopping or a chimeric read. Previously this
+                    # fell through completely unreported; now flagged so it's visible
+                    # in ambiguous_reads.tsv instead of silently vanishing into
+                    # "unassigned" with no trace.
+                    ambiguous_events.append((
+                        read, "invalid_index_pair",
+                        f"i5={i5}+i7={i7} (no sample uses this combination)",
+                        "unassigned",
+                        "excluded"
+                    ))
+
             #Case 2: only i5 present
             elif i5 != "" and i7 == "":
                 if len(i5_to_sample[i5]) == 1: #only one sample linked to the index
@@ -314,7 +339,8 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                     ambiguous_events.append((
                         read, "single_barcode_multi_sample",
                         f"i5={i5} (no i7 found)",
-                        "|".join(i5_to_sample[i5])
+                        "|".join(i5_to_sample[i5]),
+                        "excluded"
                     ))
 
             #Case 3: only i7 present
@@ -327,7 +353,8 @@ def write_fasta_files_per_sample(grouped_data, chunkID, exp_des_dict, reads, out
                     ambiguous_events.append((
                         read, "single_barcode_multi_sample",
                         f"i7={i7} (no i5 found)",
-                        "|".join(i7_to_sample[i7])
+                        "|".join(i7_to_sample[i7]),
+                        "excluded"
                     ))
 
             assignment_counts[assignment_path] += 1
@@ -378,11 +405,10 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
                                          ambiguous_events, withhold_dist=-1):
     """Flag RC collision reads in ambiguous_events; return the set of excluded read names.
 
-    Two reporting levels depending on withhold_dist:
-      rc_collision          — flagged in TSV, still written to its sample FASTA.
-      rc_collision_excluded — flagged AND excluded from sample FASTA; only used when
-                              the read's best RC collision dist <= withhold_dist.
-                              withhold_dist=-1 disables exclusion entirely.
+    Always reported as ambiguity_type "rc_collision"; the decision column
+    ("included"/"excluded") carries the outcome, and barcode_info notes
+    "dual_confirmed" when i5+i7 independently confirm a valid pair (in which
+    case it's always "included", regardless of withhold_dist).
 
     Withholding only ever applies to single-barcode assignments (i5_only /
     i7_only). A read whose i5 AND i7 independently confirm a valid,
@@ -454,11 +480,20 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
         if excluded:
             suppressed.add(read_name)
 
-        ambiguity_type = "rc_collision_excluded" if excluded else "rc_collision"
+        # ambiguity_type is always "rc_collision" -- the decision column carries
+        # the outcome:
+        #   included — i5+i7 independently confirm a valid pair (dual_confirmed),
+        #              so it's kept in its sample FASTA regardless of withhold_dist;
+        #              or a single-barcode collision below withhold_dist.
+        #   excluded — single-barcode assignment with no second barcode to
+        #              corroborate, and dist <= withhold_dist.
+        decision = "excluded" if excluded else "included"
         ambiguous_events.append((
-            read_name, ambiguity_type,
-            f"{extraction_slot}_extracted; RC_matches_{colliding_index} (dist={dist})",
-            assigned_sample
+            read_name, "rc_collision",
+            f"{extraction_slot}_extracted; RC_matches_{colliding_index} (dist={dist})"
+            f"{'; dual_confirmed' if dual_confirmed else ''}",
+            assigned_sample,
+            decision
         ))
 
     return suppressed
@@ -470,9 +505,10 @@ def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
     handlers = {
         'tie_both_valid':              open(f'{ambiguous_dir}/tie_both_valid.{chunkID}.fna', 'w'),
         'single_barcode_multi_sample': open(f'{ambiguous_dir}/single_barcode_multi_sample.{chunkID}.fna', 'w'),
+        'invalid_index_pair':          open(f'{ambiguous_dir}/invalid_index_pair.{chunkID}.fna', 'w'),
     }
     try:
-        for read_id, ambiguity_type, _, _ in ambiguous_events:
+        for read_id, ambiguity_type, _, _, _ in ambiguous_events:
             if ambiguity_type in handlers and read_id in reads:
                 new_seq = SeqRecord(reads[read_id].seq, id=reads[read_id].id, description="")
                 SeqIO.write(new_seq, handlers[ambiguity_type], 'fasta')
@@ -484,7 +520,7 @@ def write_ambiguous_fasta_files(ambiguous_events, reads, chunkID, output_path):
 def write_ambiguous_report(ambiguous_events, chunkID, output_path):
     report_path = f'{output_path}/ambiguous_reads.{chunkID}.tsv'
     with open(report_path, 'w') as f:
-        f.write("read_id\tambiguity_type\tbarcode_info\tpossible_samples\n")
+        f.write("read_id\tambiguity_type\tbarcode_info\tpossible_samples\tdecision\n")
         for event in ambiguous_events:
             f.write("\t".join(str(x) for x in event) + "\n")
     print(f"Ambiguous reads report written to: {report_path} ({len(ambiguous_events)} events)")
