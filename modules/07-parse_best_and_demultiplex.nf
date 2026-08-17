@@ -31,7 +31,10 @@ process parseBestDemulti {
     -rc ${rcCollisionEvents} \
     -ed ${expDesFile} \
     -o  "07-parse_best_and_demultiplex_per_chunk" \
-    -rcw ${params.rcCollisionWithholdDist}
+    -rcw ${params.rcCollisionWithholdDist} \
+    -mbd ${params.maxBarcodeMatchDist} \
+    -rbm ${params.rescueBarcodeMatch} \
+    -rmd ${params.rescueMaxDist ?: (params.maxBarcodeMatchDist + 1)}
 
     """
 }

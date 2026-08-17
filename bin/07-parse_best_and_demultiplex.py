@@ -45,6 +45,25 @@ def check_arg(args=None):
                              '0 (default) = exclude only exact RC mirrors (dist=0); '
                              '-1 = flag only, never exclude.')
 
+    parser.add_argument('--max_barcode_match_dist', '-mbd', type=int, default=2,
+                        help='Maximum accepted Levenshtein distance for a same-slot barcode '
+                             'match. This is an absolute edit distance, not relative to barcode '
+                             'length -- tune it per index kit (e.g. a 10bp kit can likely '
+                             'tolerate a looser value than an 8bp kit at the same relative '
+                             'stringency). [default: 2]')
+
+    parser.add_argument('--rescue_barcode_match', '-rbm', type=lambda x: x.lower() == 'true',
+                        default=False,
+                        help='Enable the dual-confirmation rescue: a read that fails '
+                             'max_barcode_match_dist in BOTH slots is promoted to a match if its '
+                             'two individually-too-loose candidates (one per slot, up to '
+                             'rescue_max_dist) agree on a real, valid sample pair. Off by '
+                             'default -- opt in explicitly. [default: False]')
+
+    parser.add_argument('--rescue_max_dist', '-rmd', type=int, default=None,
+                        help='Distance threshold used only when --rescue_barcode_match is set. '
+                             'Defaults to max_barcode_match_dist + 1 if not provided.')
+
     return parser.parse_args()
 
 #################
@@ -65,37 +84,41 @@ def parse_exp_design(file_path):
 def validate_index_pairs(exp_des_dict, index_pair):
     return index_pair in exp_des_dict.values()
 
-# Maximum accepted Levenshtein distance for a same-slot barcode match (8bp
-# barcodes). At <=3, ~44% of matched reads turned out to be invalid_index_pair
-# noise -- borderline dist-2/3 matches on one or both slots, not confident
-# barcode reads. <=2 cuts that to ~14% while only losing ~4% of total reads
-# (measured on real data); <=1 goes further (~4% invalid pairs) at the cost of
-# losing about half the reads. <=2 is the current best noise-vs-coverage
-# trade-off found.
-MAX_BARCODE_MATCH_DIST = 2
-
-# Reads with no usable candidate in either slot at MAX_BARCODE_MATCH_DIST are
-# rescued if -- and only if -- they have a same-slot candidate in BOTH slots
-# up to RESCUE_MAX_DIST, and those two independently-extracted candidates
-# together form a real, valid sample pair. Two independent noisy signals
-# coincidentally agreeing on one specific real pair (out of many possible
-# i5 x i7 combinations) is a much stronger signal than either matching alone
-# -- the same corroboration principle already used for RC collision handling
-# (see append_rc_collision_ambiguous_events). Single-barcode rescues are
-# deliberately never attempted: with no second signal to corroborate, a lone
-# dist-3 match is too risky to trust. Verified empirically to be zero-risk on
-# real data: every no_barcode_match read with both slots present at dist=3
-# resolved to a combination no sample actually uses, so this never rescues a
-# fabricated pair -- it only ever fires on a genuine coincidence of two
-# correct signals.
-RESCUE_MAX_DIST = 3
-
-
-def create_best_distance_dict(distance_file, exp_des_dict):
+def create_best_distance_dict(distance_file, exp_des_dict, max_barcode_match_dist,
+                               rescue_enabled=False, rescue_max_dist=None):
     """Returns (best, read_best_dist, rescued_reads).
 
+    max_barcode_match_dist: maximum accepted Levenshtein distance for a
+    same-slot barcode match. This is an absolute edit distance, not relative
+    to barcode length -- tune it per index kit (a 10bp kit can likely
+    tolerate a looser value than an 8bp kit at the same relative
+    stringency). On this project's 8bp real data, <=3 let ~44% of matched
+    reads through as invalid_index_pair noise -- borderline dist-2/3 matches,
+    not confident barcode reads; <=2 cut that to ~14% while only losing ~4%
+    of total reads; <=1 goes further (~4% invalid pairs) at the cost of
+    losing about half the reads. <=2 was the best noise-vs-coverage trade-off
+    found for that dataset, but re-derive it for your own kit/error profile
+    rather than trusting it as a universal default.
+
+    rescue_enabled / rescue_max_dist: if enabled, a read with no usable
+    candidate in either slot at max_barcode_match_dist is rescued if it has a
+    same-slot candidate in BOTH slots up to rescue_max_dist, and those two
+    independently-extracted candidates together form a real, valid sample
+    pair. Two independent noisy signals coincidentally agreeing on one
+    specific real pair (out of many possible i5 x i7 combinations) is a much
+    stronger signal than either matching alone -- the same corroboration
+    principle already used for RC collision handling (see
+    append_rc_collision_ambiguous_events). Single-barcode rescues are
+    deliberately never attempted: with no second signal to corroborate, a
+    lone dist-3 match is too risky to trust. Off by default -- opt in
+    explicitly, since (unlike RC collision's dual_confirmed) this hasn't been
+    validated across kits/datasets, only shown to be zero-risk on this
+    project's real data (every no_barcode_match read with both slots present
+    at dist=3 resolved to a combination no sample actually uses, so it never
+    rescued a fabricated pair there -- but a different dataset could differ).
+
     best: {query_id: [min_val, best_match]} for candidates that cleared
-    MAX_BARCODE_MATCH_DIST, plus any rescued via RESCUE_MAX_DIST (see below).
+    max_barcode_match_dist, plus any rescued via rescue_max_dist.
 
     read_best_dist: {read_name: closest same-slot distance seen across ALL of
     that read's candidates, regardless of whether it cleared the threshold.
@@ -105,16 +128,20 @@ def create_best_distance_dict(distance_file, exp_des_dict):
     query_id (which also carries the originating BLAST hit's subject_id).
 
     rescued_reads: {read_name: (i5_name, i5_dist, i7_name, i7_dist)} for reads
-    added to `best` via the RESCUE_MAX_DIST dual-confirmation fallback, so
-    callers can flag them distinctly in the ambiguous reads report.
+    added to `best` via the rescue fallback, so callers can flag them
+    distinctly in the ambiguous reads report.
     """
+    if rescue_enabled and rescue_max_dist is None:
+        rescue_max_dist = max_barcode_match_dist + 1
+
     valid_pairs = {tuple(idxs) for idxs in exp_des_dict.values()}  # exp_des_dict values are [i5, i7] lists (unhashable)
 
     best = defaultdict(list)
     read_best_dist = {}
-    # Per-read, per-slot best candidate up to RESCUE_MAX_DIST, tracked
-    # regardless of whether it clears MAX_BARCODE_MATCH_DIST -- feeds the
-    # rescue pass below. {(read_name): (min_val, query_id, best_match)}
+    # Per-read, per-slot best candidate up to rescue_max_dist, tracked
+    # regardless of whether it clears max_barcode_match_dist -- feeds the
+    # rescue pass below (only populated when rescue_enabled).
+    # {(read_name): (min_val, query_id, best_match)}
     rescue_candidates = {'i5': {}, 'i7': {}}
 
     with open(distance_file, 'r') as tsv:
@@ -133,7 +160,7 @@ def create_best_distance_dict(distance_file, exp_des_dict):
                 if read_name not in read_best_dist or min_val < read_best_dist[read_name]:
                     read_best_dist[read_name] = min_val
 
-                if min_val <= RESCUE_MAX_DIST:
+                if rescue_enabled and min_val <= rescue_max_dist:
                     min_value_index = distances.index(min_val)
                     best_match = header_list[min_value_index + 1]
                     slot = 'i5' if best_match.startswith('i5') else ('i7' if best_match.startswith('i7') else None)
@@ -142,7 +169,7 @@ def create_best_distance_dict(distance_file, exp_des_dict):
                         if current is None or min_val < current[0]:
                             rescue_candidates[slot][read_name] = (min_val, query_id, best_match)
 
-                if min_val > MAX_BARCODE_MATCH_DIST:
+                if min_val > max_barcode_match_dist:
                     continue
 
                 # Collect all columns that tied at the minimum distance.
@@ -171,23 +198,24 @@ def create_best_distance_dict(distance_file, exp_des_dict):
                 best_match = header_list[min_value_index + 1]
                 best[query_id] = [min_val, best_match]
 
-    # Rescue pass: reads with no usable candidate in EITHER slot at
-    # MAX_BARCODE_MATCH_DIST, but a same-slot candidate in BOTH slots at
-    # RESCUE_MAX_DIST that together form a real, valid sample pair.
-    resolved_reads = {qid.split('.')[0] for qid in best}
     rescued_reads = {}
-    for read_name in set(rescue_candidates['i5']) & set(rescue_candidates['i7']):
-        if read_name in resolved_reads:
-            continue  # already has a normal match in at least one slot
-        i5_dist, i5_qid, i5_name = rescue_candidates['i5'][read_name]
-        i7_dist, i7_qid, i7_name = rescue_candidates['i7'][read_name]
-        if (i5_name, i7_name) in valid_pairs:
-            best[i5_qid] = [i5_dist, i5_name]
-            best[i7_qid] = [i7_dist, i7_name]
-            rescued_reads[read_name] = (i5_name, i5_dist, i7_name, i7_dist)
+    if rescue_enabled:
+        # Rescue pass: reads with no usable candidate in EITHER slot at
+        # max_barcode_match_dist, but a same-slot candidate in BOTH slots at
+        # rescue_max_dist that together form a real, valid sample pair.
+        resolved_reads = {qid.split('.')[0] for qid in best}
+        for read_name in set(rescue_candidates['i5']) & set(rescue_candidates['i7']):
+            if read_name in resolved_reads:
+                continue  # already has a normal match in at least one slot
+            i5_dist, i5_qid, i5_name = rescue_candidates['i5'][read_name]
+            i7_dist, i7_qid, i7_name = rescue_candidates['i7'][read_name]
+            if (i5_name, i7_name) in valid_pairs:
+                best[i5_qid] = [i5_dist, i5_name]
+                best[i7_qid] = [i7_dist, i7_name]
+                rescued_reads[read_name] = (i5_name, i5_dist, i7_name, i7_dist)
 
-    if rescued_reads:
-        print(f"Rescued {len(rescued_reads)} reads via RESCUE_MAX_DIST={RESCUE_MAX_DIST} dual-confirmation")
+        if rescued_reads:
+            print(f"Rescued {len(rescued_reads)} reads via rescue_max_dist={rescue_max_dist} dual-confirmation")
 
     return best, read_best_dist, rescued_reads
 
@@ -599,9 +627,10 @@ def write_ambiguous_report(ambiguous_events, chunkID, output_path):
     print(f"Ambiguous reads report written to: {report_path} ({len(ambiguous_events)} events)")
 
 
-def append_no_barcode_match_events(reads_dict, grouped_data, read_best_dist, ambiguous_events):
+def append_no_barcode_match_events(reads_dict, grouped_data, read_best_dist, ambiguous_events,
+                                    max_barcode_match_dist):
     """Reads that pass Nanopore quality/length filtering but never get a
-    single barcode candidate within MAX_BARCODE_MATCH_DIST in either slot
+    single barcode candidate within max_barcode_match_dist in either slot
     never enter grouped_data at all -- previously they had no trace anywhere
     in the report. Flags each such read as 'no_barcode_match', noting the
     closest distance actually found (bin/04 did extract *something*, it just
@@ -618,15 +647,16 @@ def append_no_barcode_match_events(reads_dict, grouped_data, read_best_dist, amb
         if best_dist is None:
             info = f"no barcode extraction attempt succeeded for this read at all"
         else:
-            info = f"closest candidate was distance {best_dist} (exceeds MAX_BARCODE_MATCH_DIST={MAX_BARCODE_MATCH_DIST})"
+            info = f"closest candidate was distance {best_dist} (exceeds max_barcode_match_dist={max_barcode_match_dist})"
         ambiguous_events.append((read_id, "no_barcode_match", info, "unassigned", "excluded"))
     return count
 
 
-def append_rescued_match_events(rescued_reads, exp_des_dict, ambiguous_events):
-    """Flag reads promoted by the RESCUE_MAX_DIST dual-confirmation fallback
-    (see create_best_distance_dict) so they're distinguishable in the report
-    from ordinary MAX_BARCODE_MATCH_DIST matches, even though they end up
+def append_rescued_match_events(rescued_reads, exp_des_dict, ambiguous_events,
+                                 max_barcode_match_dist, rescue_max_dist):
+    """Flag reads promoted by the dual-confirmation rescue fallback (see
+    create_best_distance_dict) so they're distinguishable in the report from
+    ordinary max_barcode_match_dist matches, even though they end up
     'included' (written to their sample FASTA) just like a normal match."""
     for read_name, (i5_name, i5_dist, i7_name, i7_dist) in rescued_reads.items():
         sample = next(
@@ -636,8 +666,8 @@ def append_rescued_match_events(rescued_reads, exp_des_dict, ambiguous_events):
         ambiguous_events.append((
             read_name, "rescued_barcode_match",
             f"i5={i5_name}(dist={i5_dist})+i7={i7_name}(dist={i7_dist}); "
-            f"individually exceed MAX_BARCODE_MATCH_DIST={MAX_BARCODE_MATCH_DIST} "
-            f"but together form a valid pair within RESCUE_MAX_DIST={RESCUE_MAX_DIST}",
+            f"individually exceed max_barcode_match_dist={max_barcode_match_dist} "
+            f"but together form a valid pair within rescue_max_dist={rescue_max_dist}",
             sample, "included"
         ))
 
@@ -677,16 +707,24 @@ if __name__ == "__main__":
     reads_dict = SeqIO.index(clean_reads_file, 'fasta')
 
     exp_des_dict = parse_exp_design(args.experimental_design)
-    best_dict, read_best_dist, rescued_reads = create_best_distance_dict(distance_table, exp_des_dict)
+    max_barcode_match_dist = args.max_barcode_match_dist
+    rescue_enabled = args.rescue_barcode_match
+    rescue_max_dist = args.rescue_max_dist if args.rescue_max_dist is not None else max_barcode_match_dist + 1
+
+    best_dict, read_best_dist, rescued_reads = create_best_distance_dict(
+        distance_table, exp_des_dict, max_barcode_match_dist, rescue_enabled, rescue_max_dist
+    )
     ambiguous_events = []
     mapped_data = parse_best_dictionary_should_update(best_dict, exp_des_dict, ambiguous_events)
     count_inconclusive(mapped_data)
     write_info_into_file(mapped_data, chunkID, args.output)
 
-    append_rescued_match_events(rescued_reads, exp_des_dict, ambiguous_events)
+    append_rescued_match_events(
+        rescued_reads, exp_des_dict, ambiguous_events, max_barcode_match_dist, rescue_max_dist
+    )
 
     no_barcode_match_count = append_no_barcode_match_events(
-        reads_dict, mapped_data, read_best_dist, ambiguous_events
+        reads_dict, mapped_data, read_best_dist, ambiguous_events, max_barcode_match_dist
     )
 
     # RC collision events must be processed BEFORE writing FASTA files so we can

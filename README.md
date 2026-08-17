@@ -212,12 +212,13 @@ Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged chimera report acros
 <a name="ambiguous-reads"></a>
 ## Ambiguous Read Assignments
 
-During demultiplexing, some reads cannot be unambiguously assigned to a sample, or are assigned correctly but flagged for inspection. Five situations are reported:
+During demultiplexing, some reads cannot be unambiguously assigned to a sample, or are assigned correctly but flagged for inspection. Six situations are reported:
 
 - **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. Unresolvable; always excluded.
 - **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design. Unresolvable; always excluded.
 - **`invalid_index_pair`** — Both i5 and i7 were detected confidently, but the combination doesn't match any sample in your experimental design (e.g. index hopping, a chimeric read). Always excluded.
-- **`no_barcode_match`** — bin/04 extracted *something* from this read, but nothing came within `MAX_BARCODE_MATCH_DIST` of any catalog barcode in either slot (see [Barcode matching threshold](#barcode-threshold) below). `barcode_info` notes the closest distance actually found, so you can tell this apart from a read where no adapter was detected at all. Always excluded.
+- **`no_barcode_match`** — bin/04 extracted *something* from this read, but nothing came within `MAX_BARCODE_MATCH_DIST` of any catalog barcode in either slot (see [Barcode matching threshold](#barcode-threshold) below). `barcode_info` notes the closest distance actually found, so you can tell this apart from a read where no adapter was detected at all. Always excluded, unless rescued (see [Dual-confirmation rescue](#rescue) below).
+- **`rescued_barcode_match`** — A `no_barcode_match` read whose two individually-too-loose candidates (one per slot) turned out to agree on a real, valid sample pair. Always included — see [Dual-confirmation rescue](#rescue) below.
 - **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is a near-exact reverse complement of a barcode used by a different sample. See [RC collision handling](#rc-collision) below — whether it's kept or excluded depends on whether a second barcode corroborates the assignment.
 
 After each run, deluxpore writes a merged report to:
@@ -230,8 +231,8 @@ The TSV has five columns:
 | Column | Description |
 |--------|-------------|
 | `read_id` | Nanopore read identifier |
-| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `invalid_index_pair`, `no_barcode_match`, or `rc_collision` |
-| `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance (for `rc_collision`); the mismatched i5+i7 combination (for `invalid_index_pair`); the closest distance found (for `no_barcode_match`); etc. |
+| `ambiguity_type` | `tie_both_valid`, `single_barcode_multi_sample`, `invalid_index_pair`, `no_barcode_match`, `rescued_barcode_match`, or `rc_collision` |
+| `barcode_info` | The slot extracted and the colliding index with its Levenshtein distance (for `rc_collision`); the mismatched i5+i7 combination (for `invalid_index_pair`); the closest distance found (for `no_barcode_match`); the two rescued candidates and their distances (for `rescued_barcode_match`); etc. |
 | `possible_samples` | Sample the read was assigned to (or would have been assigned to, for excluded reads) |
 | `decision` | `included` (kept in its sample FASTA) or `excluded` (withheld from all sample FASTAs) |
 
@@ -242,16 +243,19 @@ Use this report to identify which samples are affected by barcode collisions and
 <a name="barcode-threshold"></a>
 ### Barcode matching threshold
 
-A read's extracted i5/i7 barcode is only accepted as a match if its Levenshtein distance to the closest catalog barcode is `<= MAX_BARCODE_MATCH_DIST` (currently `2`, set in `bin/07-parse_best_and_demultiplex.py`). This threshold was tuned empirically, not guessed: on real data, most `invalid_index_pair` reads (both barcodes "matched," but to a combination no sample uses) turned out to sit right at the edge of a looser cutoff — i.e. noisy, low-confidence matches rather than confidently-read barcodes that genuinely disagree.
+| Parameter | Default | Description |
+|---|---|---|
+| `--maxBarcodeMatchDist` | `2` | Maximum Levenshtein distance allowed between an extracted barcode and a catalog barcode for it to count as a match. Absolute edit distance, not relative to barcode length — adjust per index kit. |
 
-| threshold | reads with any match | genuine `both`/`i5_only`/`i7_only` | `invalid_index_pair` (noise) |
-|---|---|---|---|
-| `<=3` | 503 | 280 | 223 (44%) |
-| `<=2` (current) | 483 | 414 | 69 (14%) |
-| `<=1` | 251 | 240 | 11 (4%) |
-| `<=0` (exact only) | 233 | 223 | 10 (4%) |
+<a name="rescue"></a>
+### Dual-confirmation rescue
 
-`<=2` was chosen as the best trade-off: it drops only ~4% of total reads relative to `<=3`, while cutting noise-driven `invalid_index_pair` reads by more than two-thirds. `<=1` is more aggressive — closer to noise-free, but at the cost of roughly half your reads. If your data has a different error profile, re-running this sweep against your own `distance_matrix.tsv` (grouping reads by `create_best_distance_dict`'s output at a few candidate thresholds) is worth doing before trusting `2` as a universal default.
+A single barcode match beyond `--maxBarcodeMatchDist` is too unreliable to trust on its own. But if a read's i5 *and* i7 **both** land on a real sample pair at that looser distance, that agreement is strong evidence the read is genuine — two independent, error-prone signals landing on the same specific real combination by chance is far less likely than either one doing so alone. This rescue exists to recover those reads instead of discarding them outright. It never invents a pair that isn't in your experimental design; it can only promote a read when both slots agree on one that's already real.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `--rescueBarcodeMatch` | `false` | If a read fails `--maxBarcodeMatchDist` in both slots, retry with `--rescueMaxDist`; promote it to a match only if both slots agree on a real, valid sample pair. |
+| `--rescueMaxDist` | `maxBarcodeMatchDist + 1` | Distance threshold used for the rescue retry. Only applies when `--rescueBarcodeMatch true`. |
 
 <a name="rc-collision"></a>
 ### RC collision handling

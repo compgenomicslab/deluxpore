@@ -54,6 +54,16 @@ def helpMessage() {
                                must cover to be treated as a genuine chimeric junction rather
                                than noise; 0.7 sits in the valley between coincidental short
                                matches (~0.15-0.20) and genuine chimeras (~0.90-1.0) [default: 0.7]
+      --maxBarcodeMatchDist    Maximum accepted Levenshtein distance for a same-slot barcode
+                               match. Absolute edit distance, not relative to barcode length --
+                               tune per index kit (e.g. a 10bp kit can likely tolerate a looser
+                               value than an 8bp kit at the same relative stringency) [default: 2]
+      --rescueBarcodeMatch     Enable dual-confirmation rescue: promote a read that fails
+                               --maxBarcodeMatchDist in BOTH slots if its two individually-too-
+                               loose candidates (one per slot) agree on a real, valid sample
+                               pair [default: false]
+      --rescueMaxDist          Distance threshold used only when --rescueBarcodeMatch is set
+                               [default: maxBarcodeMatchDist + 1]
 
     Resource limits:
       --max_cpus             Maximum CPUs to use [default: auto-detected]
