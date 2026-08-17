@@ -40,6 +40,7 @@ process trimAndRemoveChimeras {
         --blast_output ${sampleName}.vs_index.out \\
         --complete_indexes_fna ${completeIndexesFna} \\
         ${chimeraFlags} \\
+        --min_fragment_length ${params.nanoLength} \\
         --output ${sampleName}.trimmed.fna.tmp \\
         --report ${sampleName}.chimera_report.tsv
 

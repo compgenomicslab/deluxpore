@@ -35,6 +35,12 @@ def check_arg(args=None):
                         help='Minimum fraction of the adapter template an internal '
                              'alignment must cover to be treated as a genuine chimeric '
                              'junction rather than noise [default: 0.7]')
+    parser.add_argument('--min_fragment_length', '-ml', type=int, default=100,
+                        help='Minimum length for a fragment (or terminally-trimmed whole '
+                             'read) to be written to the output FASTA. Applies uniformly to '
+                             'both. Pass --nanoLength here for consistency with the minimum '
+                             'length already enforced on raw reads earlier in the pipeline '
+                             '[default: 100]')
     parser.add_argument('--output', '-o', required=True,
                         help='Output FASTA path')
     parser.add_argument('--report', '-r', required=True,
@@ -103,7 +109,15 @@ def trim_and_split(read_seq, hits, template_lens, remove_chimeras, min_chimera_c
     chimera_junctions = []  # (qstart_1based, qend_1based, coverage) — always detected
 
     for qstart, qend, sseqid, sstart, send in hits:
-        if qstart < 73 and qend <= 73:
+        # A hit counts as terminal if it STARTS (or ends) near the read boundary,
+        # regardless of where the other end of the hit falls. The adapter
+        # templates are only ~66-71bp, so a hit that starts within the first 73bp
+        # can never extend far past it -- requiring BOTH qstart<73 AND qend<=73
+        # (as this used to) rejected genuine single terminal adapters whenever
+        # they started more than ~2-7bp into the read (very common: read-start
+        # noise/offset), misclassifying them as internal chimera junctions and
+        # splitting off a near-empty, useless leading "fragment".
+        if qstart < 73:
             start_trim_qends.append(qend)
         elif qend > read_len - 73:
             end_trim_qstarts.append(qstart)
@@ -165,14 +179,18 @@ if __name__ == '__main__':
     reads = SeqIO.index(args.fasta_reads, 'fasta')
 
     report_rows = []
+    dropped_short = 0  # fragments/reads dropped for being < min_fragment_length
 
     with open(args.output, 'w') as out_fasta:
         for read_id, record in reads.items():
             hits = blast_hits.get(read_id, [])
 
             if not hits:
-                # No BLAST hits for this read — write it unchanged
-                SeqIO.write(SeqRecord(record.seq, id=read_id, description=""), out_fasta, 'fasta')
+                # No BLAST hits for this read — write it unchanged (if long enough)
+                if len(record.seq) >= args.min_fragment_length:
+                    SeqIO.write(SeqRecord(record.seq, id=read_id, description=""), out_fasta, 'fasta')
+                else:
+                    dropped_short += 1
                 continue
 
             fragments, chimera_junctions = trim_and_split(
@@ -180,39 +198,48 @@ if __name__ == '__main__':
                 args.remove_chimeras, args.min_chimera_coverage
             )
 
+            # Drop any fragment (or the single trimmed read) shorter than
+            # min_fragment_length -- applies uniformly whether or not a chimera
+            # split occurred, so junk fragments never reach the sample FASTA.
+            kept = [f for f in fragments if len(f[0]) >= args.min_fragment_length]
+            dropped_short += len(fragments) - len(kept)
+
             if not chimera_junctions:
                 # No internal adapter hits — write trimmed read as-is
-                frag_seq, _, _ = fragments[0]
-                SeqIO.write(SeqRecord(frag_seq, id=read_id, description=""), out_fasta, 'fasta')
+                if kept:
+                    frag_seq, _, _ = kept[0]
+                    SeqIO.write(SeqRecord(frag_seq, id=read_id, description=""), out_fasta, 'fasta')
             elif len(fragments) == 1:
                 # Chimera detected but not split (remove_chimeras=False)
-                frag_seq, orig_s, orig_e = fragments[0]
-                SeqIO.write(SeqRecord(frag_seq, id=read_id, description=""), out_fasta, 'fasta')
-                best_cov = max(cov for _, _, cov in chimera_junctions)
-                report_rows.append({
-                    'original_read_id': read_id,
-                    'num_fragments': 1,
-                    'fragment_id': read_id,
-                    'fragment_start': orig_s,
-                    'fragment_end': orig_e,
-                    'junction_coverage': f"{best_cov:.3f}",
-                    'chimera_split': 'no',
-                })
-            else:
-                # Chimera detected and split
-                best_cov = max(cov for _, _, cov in chimera_junctions)
-                for idx, (frag_seq, orig_s, orig_e) in enumerate(fragments, start=1):
-                    frag_id = f"{read_id}_frag{idx}"
-                    SeqIO.write(SeqRecord(frag_seq, id=frag_id, description=""), out_fasta, 'fasta')
+                if kept:
+                    frag_seq, orig_s, orig_e = kept[0]
+                    SeqIO.write(SeqRecord(frag_seq, id=read_id, description=""), out_fasta, 'fasta')
+                    best_cov = max(cov for _, _, cov in chimera_junctions)
                     report_rows.append({
                         'original_read_id': read_id,
-                        'num_fragments': len(fragments),
-                        'fragment_id': frag_id,
+                        'num_fragments': 1,
+                        'fragment_id': read_id,
                         'fragment_start': orig_s,
                         'fragment_end': orig_e,
                         'junction_coverage': f"{best_cov:.3f}",
-                        'chimera_split': 'yes',
+                        'chimera_split': 'no',
                     })
+            else:
+                # Chimera detected and split
+                if kept:
+                    best_cov = max(cov for _, _, cov in chimera_junctions)
+                    for idx, (frag_seq, orig_s, orig_e) in enumerate(kept, start=1):
+                        frag_id = f"{read_id}_frag{idx}"
+                        SeqIO.write(SeqRecord(frag_seq, id=frag_id, description=""), out_fasta, 'fasta')
+                        report_rows.append({
+                            'original_read_id': read_id,
+                            'num_fragments': len(kept),
+                            'fragment_id': frag_id,
+                            'fragment_start': orig_s,
+                            'fragment_end': orig_e,
+                            'junction_coverage': f"{best_cov:.3f}",
+                            'chimera_split': 'yes',
+                        })
 
     with open(args.report, 'w', newline='') as report_f:
         writer = csv.DictWriter(report_f, fieldnames=[
@@ -225,5 +252,6 @@ if __name__ == '__main__':
     n_detected = len({r['original_read_id'] for r in report_rows})
     n_split = len({r['original_read_id'] for r in report_rows if r['chimera_split'] == 'yes'})
     print(f"Processed {len(reads)} reads. Detected {n_detected} chimeric reads "
-          f"({n_split} split into fragments).",
+          f"({n_split} split into fragments). Dropped {dropped_short} fragments/reads "
+          f"below --min_fragment_length={args.min_fragment_length}.",
           file=sys.stderr)
