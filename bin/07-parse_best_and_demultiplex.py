@@ -384,6 +384,16 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
                               the read's best RC collision dist <= withhold_dist.
                               withhold_dist=-1 disables exclusion entirely.
 
+    Withholding only ever applies to single-barcode assignments (i5_only /
+    i7_only). A read whose i5 AND i7 independently confirm a valid,
+    self-consistent sample pair is never withheld, even if one of its
+    barcodes also collides with an unrelated sample's barcode in RC
+    orientation: the slot itself (i5 vs i7) is established by BLAST-aligning
+    ~60bp of adapter backbone, not the 8bp barcode, so an 8bp cross-slot
+    coincidence doesn't actually undermine a match corroborated by a second,
+    independently-extracted barcode. Single-barcode assignments have no such
+    corroboration, so those remain eligible for withholding.
+
     Deduplication: bin/05 records one row per BLAST alignment × colliding index.
     We keep the best (lowest) distance per (read_name, slot, colliding_index), then
     reduce further to the globally minimum distance per read. Events above
@@ -421,11 +431,14 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
         if not assigned_i5 and not assigned_i7:
             continue  # read was not assigned at all
 
+        dual_confirmed = False  # both i5 and i7 independently confirm a valid, real sample pair
+
         if assigned_i5 and assigned_i7:
             assigned_sample = next(
                 (s for s, idxs in exp_des_dict.items() if idxs == [assigned_i5, assigned_i7]),
                 "unassigned"
             )
+            dual_confirmed = (assigned_sample != "unassigned")
         elif assigned_i5:
             matches = [s for s, idxs in exp_des_dict.items() if idxs[0] == assigned_i5]
             assigned_sample = matches[0] if len(matches) == 1 else "unassigned"
@@ -433,7 +446,11 @@ def append_rc_collision_ambiguous_events(rc_collision_events, grouped_data, exp_
             matches = [s for s, idxs in exp_des_dict.items() if idxs[1] == assigned_i7]
             assigned_sample = matches[0] if len(matches) == 1 else "unassigned"
 
-        excluded = (withhold_dist >= 0 and read_min_dist[read_name] <= withhold_dist)
+        excluded = (
+            not dual_confirmed
+            and withhold_dist >= 0
+            and read_min_dist[read_name] <= withhold_dist
+        )
         if excluded:
             suppressed.add(read_name)
 
