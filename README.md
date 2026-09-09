@@ -11,7 +11,7 @@
 * [Simple Usage](#simple-usage)
 * [Full Usage](#full-usage)
 * [Custom Index Sequences](#custom-indexes)
-* [Post-demultiplexing Trimming and Chimera Removal](#trimming)
+* [Chimera Detection and Post-demultiplexing Trimming](#trimming)
 * [Ambiguous Read Assignments](#ambiguous-reads)
 * [Acknowledgements](#acknowledgements)
 
@@ -112,11 +112,14 @@ Optional parameters:
   --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
   --nanoQscore             Minimum quality score [default: 20]
   --nanoLength             Minimum read length [default: 100]
-  --trimmIlluminaIndexes   Trim Illumina adapter sequences from demultiplexed reads.
-                           Trimming runs per-sample after demultiplexing; also enables
-                           chimera detection (see --removeChimeras) [default: false]
-  --removeChimeras         Split reads at confident internal adapter occurrences
-                           (chimera detection) instead of leaving them uncorrected [default: false]
+  --trimmIlluminaIndexes   Trim the terminal Illumina adapter from each read, per sample,
+                           after demultiplexing. Independent of chimera detection below
+                           [default: false]
+  --removeChimeras         Chimera junctions (internal, non-terminal adapter hits) are
+                           always detected before demultiplexing and reported in
+                           chimera_reads.tsv. Set this to split reads at those junctions
+                           into per-sample fragments instead of leaving the read excluded
+                           as an invalid cross-sample combination [default: false]
   --removeChimerasCoverage Minimum fraction of the adapter template an internal alignment
                            must cover to be treated as a genuine chimeric junction rather
                            than noise; 0.7 sits in the valley between coincidental short
@@ -176,22 +179,27 @@ The sequence IDs in these files must match the index names used in the `experime
 Example params file for custom indexes: `examples/params_file_custom_indexes.json`
 
 <a name="trimming"></a>
-## Post-demultiplexing Trimming and Chimera Removal
+## Chimera Detection and Post-demultiplexing Trimming
 
-When `--trimmIlluminaIndexes` is enabled, deluxpore runs a per-sample trimming and (optionally) chimera-splitting step **after** demultiplexing. This design is intentional: barcode assignment uses the full, untrimmed reads (giving BLAST the most signal), and trimming is applied only once reads are correctly sorted into per-sample files.
+deluxpore has two independent, separately-toggled steps that both work against the same complete-adapter BLAST database but run at different points in the pipeline and address different problems:
 
-### What gets trimmed
+| Step | Flag | When it runs | What it does |
+|------|------|---------------|--------------|
+| Chimera detection/splitting | `--removeChimeras` | **Before** demultiplexing, on raw reads | Finds internal (non-terminal) adapter hits and, if enabled, splits the read into fragments at each one |
+| Terminal adapter trimming | `--trimmIlluminaIndexes` | **After** demultiplexing, per sample | Trims the terminal i5/i7 adapter off each already-assigned read |
 
-For each demultiplexed FASTA, the pipeline runs `blastn` against the same complete-adapter BLAST database used during demultiplexing, then applies terminal trimming:
+They are no longer bundled together — you can enable either, both, or neither.
 
-- **Start-terminal** hits (adapter alignment ending within the first 73 bp) — the adapter and everything before it are removed.
-- **End-terminal** hits (adapter alignment starting within the last 73 bp) — the adapter and everything after it are removed.
+### Chimera detection and splitting (`--removeChimeras`)
 
-### Chimera detection (`--removeChimeras`)
+Some ONT reads contain internal Illumina adapter sequences from two (or more) DNA fragments accidentally ligated together during library preparation (chimeric reads). Left uncorrected, such a read carries one sample's i5 adapter and a different sample's i7 adapter — the demultiplexer can only assign that as an invalid, unresolvable combination (`invalid_index_pair`, see below), discarding the whole read even though part of it is perfectly good data.
 
-Some ONT reads contain internal Illumina adapter sequences from accidental ligation during library preparation (chimeric reads). With `--removeChimeras true`, internal BLAST hits whose alignment covers at least `--removeChimerasCoverage` of the adapter template are treated as genuine chimeric junctions: the read is split at each junction into separate fragments.
+To catch this, deluxpore BLASTs the raw reads against the complete-adapter index database **before** demultiplexing. Internal (non-terminal) hits whose alignment covers at least `--removeChimerasCoverage` of the adapter template are treated as genuine chimeric junctions.
 
-Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged chimera report across all samples is written to:
+- **Detection always runs** and is always reported in the chimera report, regardless of `--removeChimeras`.
+- **Splitting** only happens when `--removeChimeras true`: the read is split at each junction into separate fragments, so each fragment — carrying only its own sample's i5/i7 pair — is demultiplexed independently and can be correctly assigned.
+
+Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged report across all chunks is written to:
 ```
 {outDir}/ambiguous_reads_report/chimera_reads.tsv
 ```
@@ -209,6 +217,20 @@ Fragment IDs get a `_frag1`, `_frag2`, … suffix. A merged chimera report acros
 > [!NOTE]
 > Setting `--removeChimerasCoverage` too low risks splitting reads at coincidental short adapter matches. The default of 0.7 was chosen based on the bimodal distribution of internal alignment coverage in ONT UCE libraries, where noise clusters below ~0.2 and genuine chimeras cluster above ~0.9.
 
+> [!NOTE]
+> Not every `invalid_index_pair` read is a chimera with a detectable internal junction. Some are PCR tag-jumping artifacts — a genuine single insert tagged with a mismatched i5/i7 primer pair during indexing PCR — which have no internal adapter to split on and are correctly excluded either way, with or without `--removeChimeras`.
+
+### Post-demultiplexing terminal trimming (`--trimmIlluminaIndexes`)
+
+Independently of chimera detection, deluxpore can trim the terminal i5/i7 adapter from each read, per sample, **after** demultiplexing. This design is intentional: barcode assignment uses the full, untrimmed reads (giving BLAST the most signal), and trimming only removes adapter sequence once a read is already sorted into its sample file.
+
+For each demultiplexed FASTA, the pipeline runs `blastn` against the same complete-adapter BLAST database, then applies terminal trimming:
+
+- **Start-terminal** hits (adapter alignment starting within the first 73 bp) — the adapter and everything before it are removed.
+- **End-terminal** hits (adapter alignment ending within the last 73 bp) — the adapter and everything after it are removed.
+
+This step does not detect or split chimeras — that already happened earlier, before demultiplexing, regardless of whether `--trimmIlluminaIndexes` is set.
+
 <a name="ambiguous-reads"></a>
 ## Ambiguous Read Assignments
 
@@ -216,7 +238,7 @@ During demultiplexing, some reads cannot be unambiguously assigned to a sample, 
 
 - **`tie_both_valid`** — A read's detected barcodes match two different valid sample combinations with equal edit distance. Unresolvable; always excluded.
 - **`single_barcode_multi_sample`** — Only one barcode (i5 or i7) was detected in the read, but that barcode is shared by more than one sample in the experimental design. Unresolvable; always excluded.
-- **`invalid_index_pair`** — Both i5 and i7 were detected confidently, but the combination doesn't match any sample in your experimental design (e.g. index hopping, a chimeric read). Always excluded.
+- **`invalid_index_pair`** — Both i5 and i7 were detected confidently, but the combination doesn't match any sample in your experimental design. Usually a PCR tag-jumping artifact (a real insert tagged with a mismatched i5/i7 primer pair); can also be an unsplit chimera if `--removeChimeras` was off — see [Chimera Detection and Post-demultiplexing Trimming](#trimming). Always excluded.
 - **`no_barcode_match`** — bin/04 extracted *something* from this read, but nothing came within `MAX_BARCODE_MATCH_DIST` of any catalog barcode in either slot (see [Barcode matching threshold](#barcode-threshold) below). `barcode_info` notes the closest distance actually found, so you can tell this apart from a read where no adapter was detected at all. Always excluded, unless rescued (see [Dual-confirmation rescue](#rescue) below).
 - **`rescued_barcode_match`** — A `no_barcode_match` read whose two individually-too-loose candidates (one per slot) turned out to agree on a real, valid sample pair. Always included — see [Dual-confirmation rescue](#rescue) below.
 - **`rc_collision`** — The barcode extracted from one adapter slot (i5 or i7) is a near-exact reverse complement of a barcode used by a different sample. See [RC collision handling](#rc-collision) below — whether it's kept or excluded depends on whether a second barcode corroborates the assignment.
