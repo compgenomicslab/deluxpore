@@ -45,11 +45,14 @@ def helpMessage() {
       --trimandfilterNanopore  Enable Nanopore read trimming/filtering [default: true]
       --nanoQscore             Minimum quality score [default: 20]
       --nanoLength             Minimum read length [default: 100]
-      --trimmIlluminaIndexes   Trim Illumina adapter sequences from demultiplexed reads.
-                               Trimming runs per-sample after demultiplexing; also enables
-                               chimera detection (see --removeChimeras) [default: false]
-      --removeChimeras         Split reads at confident internal adapter occurrences
-                               (chimera detection) instead of leaving them uncorrected [default: false]
+      --trimmIlluminaIndexes   Trim the terminal Illumina adapter from each read, per
+                               sample, after demultiplexing. Independent of chimera
+                               detection below [default: false]
+      --removeChimeras         Chimera junctions (internal, non-terminal adapter hits) are
+                               always detected before demultiplexing and reported in
+                               chimera_reads.tsv. Set this to split reads at those
+                               junctions into per-sample fragments instead of leaving the
+                               read excluded as an invalid cross-sample combination [default: false]
       --removeChimerasCoverage Minimum fraction of the adapter template an internal alignment
                                must cover to be treated as a genuine chimeric junction rather
                                than noise; 0.7 sits in the valley between coincidental short
@@ -132,6 +135,8 @@ include { filterNanoporeReads }   from './modules/00-trim_and_filter'
 
 include { transFastqtoFasta } from './modules/01-transform_to_fasta'
 
+include { detectChimeras } from './modules/01b-detect_chimeras'
+
 include { createDB }      from './modules/02-reads2database'
 include { mapReads2DB }   from './modules/02-reads2database'
 
@@ -147,7 +152,7 @@ include { concatenateAmbiguousReport }        from './modules/08-concat_sample_f
 include { concatenateChimeraReports }         from './modules/08-concat_sample_fna_files'
 include { concatenateIndexAssignmentSummary } from './modules/08-concat_sample_fna_files'
 
-include { trimAndRemoveChimeras } from './modules/09-trim_and_remove_chimeras'
+include { trimIlluminaIndexes } from './modules/09-trim_illumina_indexes'
 
 
 /*
@@ -193,31 +198,47 @@ workflow {
         transFastqtoFastaOutput = transFastqtoFasta(read_ch)
     }
 
-    // 2) Map reads to Illumina index database
+    // 2) Build the Illumina index BLAST database
     createDBInput  = runIndexFilesOutput.map { tuple -> return tuple[0] }
     // .first() converts the single-item queue channel to a value channel so it
-    // can be consumed by both mapReads2DB (step 4) and trimAndRemoveChimeras (step 9).
+    // can be consumed across multiple downstream steps (detectChimeras,
+    // mapReads2DB, trimIlluminaIndexes).
     createDBOutput = createDB(createDBInput).first()
 
-    mapReads2DBInput  = transFastqtoFastaOutput.combine(createDBOutput)
+    // 2b) Chimera detection always runs, on the raw reads, before they are mapped
+    //     against the index database for barcode extraction. Detecting -- and, if
+    //     --removeChimeras, splitting -- chimeric reads here means each resulting
+    //     fragment carries only its own sample's i5/i7 pair into demultiplexing,
+    //     instead of the whole read being assigned an invalid cross-sample
+    //     combination (one fragment's i5 + a different fragment's i7) and excluded.
+    detectChimerasInput  = transFastqtoFastaOutput
+        .combine(createDBOutput)
+        .combine(Channel.value(indexCompleteFile))
+    detectChimerasOutput = detectChimeras(detectChimerasInput)
+    chimeraCheckedReads  = detectChimerasOutput.reads
+
+    // 3) Map (chimera-checked) reads to Illumina index database
+    mapReads2DBInput  = chimeraCheckedReads.combine(createDBOutput)
     mapReads2DBOutput = mapReads2DB(mapReads2DBInput)
 
-    // 3) Extract unique query indexes
-    extractUniqQueryIndexInput  = transFastqtoFastaOutput.join(mapReads2DBOutput)
+    // 4) Extract unique query indexes
+    extractUniqQueryIndexInput  = chimeraCheckedReads.join(mapReads2DBOutput)
         .combine(runIndexFilesOutput.map { [it] })
     extractUniqQueryIndexOutput = extractUniqQueryIndex(extractUniqQueryIndexInput)
 
-    // 4) Calculate Levenshtein distance; also detects RC collision candidates
+    // 5) Calculate Levenshtein distance; also detects RC collision candidates
     calcLevDistanceInput  = extractUniqQueryIndexOutput.combine(runIndexFilesOutput.map { [it] })
     calcLevDistanceOutput = calcLevDistance(calcLevDistanceInput)
 
-    // Sample assignment always runs on untrimmed reads.
-    // Illumina-index trimming and chimera splitting happen after demultiplexing (step 09).
-    parseBestDemultiInput = transFastqtoFastaOutput
+    // Sample assignment runs on the chimera-checked reads (already split into
+    // fragments where a chimera junction was found and removed). Terminal
+    // Illumina-index trimming happens after demultiplexing (step 09),
+    // independently of chimera detection/splitting.
+    parseBestDemultiInput = chimeraCheckedReads
         .join(calcLevDistanceOutput)
         .combine(runIndexFilesInput)
 
-    // 7) Parse distance matrix, extract best distance values per read and demultiplex
+    // 6) Parse distance matrix, extract best distance values per read and demultiplex
     parseBestDemultiOutput = parseBestDemulti(parseBestDemultiInput)
 
     // 8) Concatenate per-chunk sample files into final per-sample files
@@ -236,15 +257,17 @@ workflow {
 
     concatenatedSamples = concatenateSamples(allSampleFiles)
 
-    // 9) Per-sample Illumina-index trimming and chimera splitting
-    //    merge all per-sample chimera reports into one file in ambiguous_reads_report/
-    if (params.trimmIlluminaIndexes || params.removeChimeras) {
-        trimInput = concatenatedSamples
-            .combine(createDBOutput)
-            .combine(Channel.value(indexCompleteFile))
-        trimOutput = trimAndRemoveChimeras(trimInput)
-        concatenateChimeraReports(trimOutput.chimeraReport.collect())
+    // 9) Optional per-sample terminal Illumina-index trimming. Independent of
+    //    chimera detection/splitting, which already happened pre-demultiplexing
+    //    in step 2b.
+    if (params.trimmIlluminaIndexes) {
+        trimInput = concatenatedSamples.combine(createDBOutput)
+        trimIlluminaIndexes(trimInput)
     }
+
+    // Merge all per-chunk chimera reports into one file in ambiguous_reads_report/.
+    // Chimera detection (step 2b) always runs, so this report always exists.
+    concatenateChimeraReports(detectChimerasOutput.chimeraReport.collect())
 
     // 10) Merge per-chunk ambiguous FASTA files into one file per ambiguity type
     //     rc_collision reads are reported in ambiguous_reads.tsv only — no FASTA needed
@@ -261,14 +284,14 @@ workflow {
 
     concatenateSummaries(allAmbiguousFastas)
 
-    // 10) Merge per-chunk ambiguous read TSV reports into a single report
+    // 11) Merge per-chunk ambiguous read TSV reports into a single report
     allTsvReports = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas, summaryFile -> tsvReport }
         .collect()
 
     concatenateAmbiguousReport(allTsvReports)
 
-    // 11) Merge per-chunk index assignment summaries (i5/i7/both counts) into one report
+    // 12) Merge per-chunk index assignment summaries (i5/i7/both counts) into one report
     allIndexAssignmentSummaries = parseBestDemultiOutput
         .map { chunkID, sampleFilesList, jsonFile, tsvReport, ambiguousFastas, summaryFile -> summaryFile }
         .collect()
